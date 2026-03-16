@@ -12,7 +12,7 @@ const dbURL = process.env.DB_URL;
 const dbUrl = `${dbURL}`;
 
 //const userRoute = require("./Routes/userRoute");
-//const productRoute = require("./Routes/productRoute");
+//const documentRoute = require("./Routes/documentRoute");
 
 mongoose
   .connect(dbUrl, {})
@@ -27,4 +27,4 @@ mongoose
 app.use(cors());
 
 //app.use("/user", userRoute);
-//app.use("/product", productRoute);
+//app.use("/document", documentRoute);
