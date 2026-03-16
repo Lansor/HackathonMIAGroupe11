@@ -1,7 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=Iosevka+Charon+Mono:wght@500;700&display=swap");
+@import "./styles/chart.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
-  --bg: #fff;
+  --bg: #f7f7f7;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
   --accent: #aa3bff;
@@ -11,11 +18,14 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --sans: "Iosevka Charon Mono", ui-monospace, Consolas, monospace;
+  --heading: "Iosevka Charon Mono", ui-monospace, Consolas, monospace;
+  --mono: "Iosevka Charon Mono", ui-monospace, Consolas, monospace;
+  --fs-title: 48px;
+  --fs-subtitle: 24px;
+  --fs-body: 16px;
 
-  font: 18px/145% var(--sans);
+  font: var(--fs-body) / 145% var(--sans);
   letter-spacing: 0.18px;
   color-scheme: light dark;
   color: var(--text);
@@ -24,10 +34,6 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -55,7 +61,7 @@
   max-width: 100%;
   margin: 0 auto;
   text-align: center;
-  border-inline: 1px solid var(--border);
+  /* border-inline: 1px solid var(--border); */
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -64,35 +70,71 @@
 
 body {
   margin: 0;
+  background-color: var(--bg);
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: var(--fs-body);
+}
+
+main {
+  min-height: 100svh;
 }
 
 h1,
 h2 {
   font-family: var(--heading);
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-h);
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
+  font-size: var(--fs-title);
+  letter-spacing: -0.8px;
   margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
 }
 h2 {
-  font-size: 24px;
+  font-size: var(--fs-subtitle);
   line-height: 118%;
   letter-spacing: -0.24px;
   margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
 }
+
+h3,
+nav a,
+.menu-item {
+  font-size: var(--fs-subtitle);
+}
+
+p,
+span,
+a,
+li,
+button,
+input,
+textarea,
+label,
+code {
+  font-size: var(--fs-body);
+}
+
 p {
   margin: 0;
+}
+
+.auth-panel-enter {
+  animation: auth-panel-enter 220ms ease-out;
+}
+
+@keyframes auth-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 code,
@@ -104,7 +146,6 @@ code,
 }
 
 code {
-  font-size: 15px;
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
