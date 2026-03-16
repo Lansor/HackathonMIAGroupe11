@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import gridfs
+import pymongo
 from airflow.decorators import dag, task
 
 BASE_DATA_PATH = Path("/opt/airflow/data")
@@ -37,6 +39,15 @@ def _ensure_paths() -> None:
     RAW_PATH.mkdir(parents=True, exist_ok=True)
     CLEAN_PATH.mkdir(parents=True, exist_ok=True)
     CURATED_PATH.mkdir(parents=True, exist_ok=True)
+
+
+def _get_mongo_client() -> pymongo.MongoClient:
+    uri = os.environ["MONGODB_URI"]
+    return pymongo.MongoClient(uri, serverSelectionTimeoutMS=10000)
+
+
+def _get_db(client: pymongo.MongoClient) -> pymongo.database.Database:
+    return client.get_database()
 
 
 @dag(
@@ -81,25 +92,47 @@ def document_pipeline_mvp() -> None:
     @task
     def ingest_to_raw(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ingested: list[dict[str, Any]] = []
+        client = _get_mongo_client()
+        db = _get_db(client)
+        fs = gridfs.GridFS(db)
+        col = db["documents"]
 
         for doc in documents:
             src = Path(doc["source_path"])
             dst = RAW_PATH / src.name
 
-            if src.exists():
-                shutil.copy2(src, dst)
-                updated = {
-                    **doc,
-                    "raw_path": str(dst),
-                    "status": "INGESTED",
-                    "ingested_at": datetime.utcnow().isoformat(),
-                }
-                ingested.append(updated)
+            if not src.exists():
+                continue
 
-        metadata_path = RAW_PATH / f"ingest_metadata_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-        metadata_path.write_text(json.dumps(ingested, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"Métadonnées ingestion écrites: {metadata_path}")
+            shutil.copy2(src, dst)
 
+            # Stockage binaire dans GridFS
+            with open(dst, "rb") as f:
+                gridfs_id = fs.put(
+                    f,
+                    filename=doc["filename"],
+                    document_id=doc["document_id"],
+                    doc_type=doc["detected_type"],
+                )
+
+            updated = {
+                **doc,
+                "raw_path": str(dst),
+                "gridfs_id": str(gridfs_id),
+                "status": "INGESTED",
+                "ingested_at": datetime.utcnow().isoformat(),
+            }
+
+            # Upsert MongoDB: ne duplique pas si relancé
+            col.update_one(
+                {"document_id": updated["document_id"]},
+                {"$set": updated},
+                upsert=True,
+            )
+            print(f"[Mongo] document '{updated['document_id']}' upserted (INGESTED)")
+            ingested.append(updated)
+
+        client.close()
         return ingested
 
     @task
@@ -135,6 +168,10 @@ def document_pipeline_mvp() -> None:
     @task
     def extract_entities(clean_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         extracted_docs: list[dict[str, Any]] = []
+        client = _get_mongo_client()
+        db = _get_db(client)
+        col_docs = db["documents"]
+        col_extractions = db["extractions"]
 
         for doc in clean_docs:
             content = Path(doc["ocr_text_path"]).read_text(encoding="utf-8")
@@ -152,16 +189,35 @@ def document_pipeline_mvp() -> None:
                 "doc_type": doc["detected_type"],
             }
 
-            extracted_docs.append(
-                {
-                    **doc,
-                    "extracted_fields": extracted,
-                    "extraction_confidence": 0.87,
-                    "status": "EXTRACTED",
-                    "extracted_at": datetime.utcnow().isoformat(),
-                }
+            updated = {
+                **doc,
+                "extracted_fields": extracted,
+                "extraction_confidence": 0.87,
+                "status": "EXTRACTED",
+                "extracted_at": datetime.utcnow().isoformat(),
+            }
+
+            # Mise à jour statut dans documents
+            col_docs.update_one(
+                {"document_id": updated["document_id"]},
+                {"$set": {"status": "EXTRACTED", "extracted_at": updated["extracted_at"]}},
             )
 
+            # Upsert dans extractions
+            col_extractions.update_one(
+                {"document_id": updated["document_id"]},
+                {"$set": {
+                    "document_id": updated["document_id"],
+                    "fields": extracted,
+                    "confidence": 0.87,
+                    "extracted_at": updated["extracted_at"],
+                }},
+                upsert=True,
+            )
+            print(f"[Mongo] extraction '{updated['document_id']}' upserted")
+            extracted_docs.append(updated)
+
+        client.close()
         return extracted_docs
 
     @task
@@ -197,10 +253,27 @@ def document_pipeline_mvp() -> None:
     @task
     def write_curated(validated_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         outputs: list[dict[str, Any]] = []
+        client = _get_mongo_client()
+        db = _get_db(client)
+        col_docs = db["documents"]
 
         for doc in validated_docs:
+            # Fichier local curated (gardé pour debug)
             curated_file = CURATED_PATH / f"{doc['document_id']}.json"
             curated_file.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")
+
+            # Mise à jour statut final + champs validés dans MongoDB
+            col_docs.update_one(
+                {"document_id": doc["document_id"]},
+                {"$set": {
+                    "status": doc["status"],
+                    "validation_alerts": doc.get("validation_alerts", []),
+                    "validated_at": doc.get("validated_at"),
+                    "curated_path": str(curated_file),
+                    "zone": "curated",
+                }},
+            )
+            print(f"[Mongo] document '{doc['document_id']}' mis à jour → {doc['status']}")
 
             outputs.append(
                 {
@@ -211,29 +284,47 @@ def document_pipeline_mvp() -> None:
                 }
             )
 
+        client.close()
         return outputs
 
     @task
     def create_alerts(curated_outputs: list[dict[str, Any]]) -> None:
-        alerts_file = CURATED_PATH / f"alerts_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-        alerts_payload = [
-            {
+        client = _get_mongo_client()
+        db = _get_db(client)
+        col_alerts = db["alerts"]
+        col_runs = db["pipeline_runs"]
+
+        alerts_payload = []
+        for item in curated_outputs:
+            alert = {
                 "document_id": item["document_id"],
                 "level": "warning" if item["alerts_count"] > 0 else "info",
                 "message": "Revue manuelle requise" if item["alerts_count"] > 0 else "Aucune alerte",
                 "status": item["status"],
+                "created_at": datetime.utcnow().isoformat(),
             }
-            for item in curated_outputs
-        ]
+            # Upsert alerte pour ce document
+            col_alerts.update_one(
+                {"document_id": item["document_id"]},
+                {"$set": alert},
+                upsert=True,
+            )
+            alerts_payload.append(alert)
+            print(f"[Mongo] alerte '{item['document_id']}' → {alert['level']}")
 
+        # Enregistrement du run pipeline pour audit
+        col_runs.insert_one({
+            "run_at": datetime.utcnow().isoformat(),
+            "documents_processed": len(curated_outputs),
+            "alerts_generated": sum(1 for a in alerts_payload if a["level"] != "info"),
+            "statuses": [item["status"] for item in curated_outputs],
+        })
+        print(f"[Mongo] pipeline_run enregistré — {len(curated_outputs)} document(s) traités")
+
+        # Fichier local gardé pour debug
+        alerts_file = CURATED_PATH / f"alerts_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
         alerts_file.write_text(json.dumps(alerts_payload, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"Fichier alertes écrit: {alerts_file}")
-
-        mongo_uri = os.getenv("MONGODB_URI", "")
-        if mongo_uri and "<username>" not in mongo_uri:
-            print("MONGODB_URI détectée: brancher ici l'écriture MongoDB/alerts")
-        else:
-            print("MONGODB_URI non configurée: stockage local uniquement pour le MVP")
+        client.close()
 
     detected = detect_new_documents()
     ingested = ingest_to_raw(detected)

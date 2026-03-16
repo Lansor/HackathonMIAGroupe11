@@ -1,0 +1,6 @@
+Document: facture_test.pdf
+Type: facture
+Montant TTC: 1250.90 EUR
+Date: 2026-03-16
+SIREN: 552100554
+IBAN: FR7630006000011234567890189

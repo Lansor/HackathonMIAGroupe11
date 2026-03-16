@@ -1,0 +1,25 @@
+{
+  "document_id": "doc_1773678103_rib_fournisseur_test_2026_03_16",
+  "filename": "rib_fournisseur_test_2026_03_16.txt",
+  "source_path": "/opt/airflow/data/incoming/rib_fournisseur_test_2026_03_16.txt",
+  "detected_type": "rib",
+  "status": "VALIDATED",
+  "detected_at": "2026-03-16T16:21:43.229263",
+  "raw_path": "/opt/airflow/data/raw/rib_fournisseur_test_2026_03_16.txt",
+  "gridfs_id": "69b82e1abebf317531ff16f2",
+  "ingested_at": "2026-03-16T16:21:46.239533",
+  "ocr_text_path": "/opt/airflow/data/clean/rib_fournisseur_test_2026_03_16.txt",
+  "ocr_confidence": 0.91,
+  "ocr_at": "2026-03-16T16:21:47.794597",
+  "extracted_fields": {
+    "amount_ttc": "1250.90",
+    "date": "2026-03-16",
+    "siren": "552100554",
+    "iban": "FR7630006000011234567890189",
+    "doc_type": "rib"
+  },
+  "extraction_confidence": 0.87,
+  "extracted_at": "2026-03-16T16:21:50.239336",
+  "validation_alerts": [],
+  "validated_at": "2026-03-16T16:21:51.606553"
+}

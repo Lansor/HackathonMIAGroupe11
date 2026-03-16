@@ -1,0 +1,37 @@
+[
+  {
+    "document_id": "doc_1773678103_facture_demo_001",
+    "level": "info",
+    "message": "Aucune alerte",
+    "status": "VALIDATED",
+    "created_at": "2026-03-16T16:21:54.529988"
+  },
+  {
+    "document_id": "doc_1773678103_facture_fournisseur_test_2026_03_16",
+    "level": "info",
+    "message": "Aucune alerte",
+    "status": "VALIDATED",
+    "created_at": "2026-03-16T16:21:54.742993"
+  },
+  {
+    "document_id": "doc_1773678103_facture_test",
+    "level": "info",
+    "message": "Aucune alerte",
+    "status": "VALIDATED",
+    "created_at": "2026-03-16T16:21:54.759048"
+  },
+  {
+    "document_id": "doc_1773678103_kbis_fournisseur_test_2026_03_16",
+    "level": "info",
+    "message": "Aucune alerte",
+    "status": "VALIDATED",
+    "created_at": "2026-03-16T16:21:54.782395"
+  },
+  {
+    "document_id": "doc_1773678103_rib_fournisseur_test_2026_03_16",
+    "level": "info",
+    "message": "Aucune alerte",
+    "status": "VALIDATED",
+    "created_at": "2026-03-16T16:21:54.795996"
+  }
+]

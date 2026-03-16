@@ -1,0 +1,24 @@
+{
+  "document_id": "doc_1773675429_facture_demo_001",
+  "filename": "facture_demo_001.txt",
+  "source_path": "/opt/airflow/data/incoming/facture_demo_001.txt",
+  "detected_type": "facture",
+  "status": "VALIDATED",
+  "detected_at": "2026-03-16T15:37:09.580297",
+  "raw_path": "/opt/airflow/data/raw/facture_demo_001.txt",
+  "ingested_at": "2026-03-16T15:37:10.506943",
+  "ocr_text_path": "/opt/airflow/data/clean/facture_demo_001.txt",
+  "ocr_confidence": 0.91,
+  "ocr_at": "2026-03-16T15:37:11.462088",
+  "extracted_fields": {
+    "amount_ttc": "1250.90",
+    "date": "2026-03-16",
+    "siren": "552100554",
+    "iban": "FR7630006000011234567890189",
+    "doc_type": "facture"
+  },
+  "extraction_confidence": 0.87,
+  "extracted_at": "2026-03-16T15:37:13.272225",
+  "validation_alerts": [],
+  "validated_at": "2026-03-16T15:37:14.452489"
+}

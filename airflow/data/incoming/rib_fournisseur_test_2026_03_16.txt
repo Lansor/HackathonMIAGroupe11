@@ -1,0 +1,17 @@
+RELEVÉ D'IDENTITÉ BANCAIRE (RIB)
+Date: 2026-03-16
+
+Titulaire du compte: Alpha Services SARL
+SIREN: 552100554
+Adresse: 10 rue de la République, 75001 Paris
+
+Banque: Crédit Agricole
+Code banque: 30006
+Code guichet: 00001
+Numéro de compte: 12345678901
+Clé RIB: 89
+
+IBAN: FR7630006000011234567890189
+BIC: AGRIFRPP
+
+Domiciliation: CA PARIS NORD
