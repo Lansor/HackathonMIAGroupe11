@@ -8,7 +8,7 @@
 :root {
   --text: #6b6375;
   --text-h: #08060d;
-  --bg: #fff;
+  --bg: #f7f7f7;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
   --accent: #aa3bff;
@@ -61,7 +61,7 @@
   max-width: 100%;
   margin: 0 auto;
   text-align: center;
-  border-inline: 1px solid var(--border);
+  /* border-inline: 1px solid var(--border); */
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -70,9 +70,14 @@
 
 body {
   margin: 0;
+  background-color: var(--bg);
   font-family: var(--sans);
   font-weight: 500;
   font-size: var(--fs-body);
+}
+
+main {
+  min-height: 100svh;
 }
 
 h1,
@@ -114,6 +119,22 @@ code {
 
 p {
   margin: 0;
+}
+
+.auth-panel-enter {
+  animation: auth-panel-enter 220ms ease-out;
+}
+
+@keyframes auth-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 code,
