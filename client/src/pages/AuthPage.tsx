@@ -2,6 +2,8 @@ import { useState } from "react";
 import Login from "../components/auth/Login";
 import ForgetPassword from "../components/auth/ForgetPassword";
 import Register from "../components/auth/Register";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faUnlockKeyhole } from "@fortawesome/free-solid-svg-icons";
 
 type AuthView = "login" | "forget-password" | "register";
 
@@ -41,7 +43,7 @@ function AuthPage() {
           }`}
           onClick={() => setView("login")}
         >
-          Login
+          Connexion
         </button>
 
         <button
@@ -55,7 +57,7 @@ function AuthPage() {
           }`}
           onClick={() => setView("forget-password")}
         >
-          Forgot
+          <FontAwesomeIcon icon={faUnlockKeyhole} />
         </button>
 
         <button
@@ -69,7 +71,7 @@ function AuthPage() {
           }`}
           onClick={() => setView("register")}
         >
-          Register
+          Inscription
         </button>
       </nav>
 
@@ -78,7 +80,7 @@ function AuthPage() {
         <p className="text-slate-600">{authMeta[view].subtitle}</p>
       </section>
 
-      <div key={view} className="auth-panel-enter">
+      <div key={view}>
         {view === "login" && (
           <Login
             onGoRegister={() => setView("register")}

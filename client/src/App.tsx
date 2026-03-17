@@ -1,10 +1,20 @@
 import "./App.css";
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
 import UploadPage from "./pages/UploadPage";
+import NavMenu from "./components/NavMenu";
+import RequireAuth from "./components/RequireAuth";
 
 function RootLayout() {
-  return <Outlet />;
+  const location = useLocation();
+  const showNav = location.pathname !== "/auth";
+
+  return (
+    <>
+      {showNav && <NavMenu />}
+      <Outlet />
+    </>
+  );
 }
 
 function App() {
@@ -13,7 +23,10 @@ function App() {
       <Route path="/" element={<RootLayout />}>
         <Route index element={<Navigate to="/auth" replace />} />
         <Route path="auth" element={<AuthPage />} />
-        <Route path="upload" element={<UploadPage />} />
+        {/* Routes protégées */}
+        <Route element={<RequireAuth />}>
+          <Route path="upload" element={<UploadPage />} />
+        </Route>
       </Route>
     </Routes>
   );

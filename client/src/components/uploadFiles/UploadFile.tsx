@@ -1,40 +1,43 @@
 import { useState } from "react";
 import Upload from "./sous-composants/Upload";
-import File from "./sous-composants/File";
+import FileList from "./sous-composants/File";
+import type { UploadedItem } from "./types";
 
-type UploadedItem = {
-  id: string;
-  name: string;
+const FAKE_UPLOAD_DELAY_MS = 900;
+
+const createUploadedItems = (files: globalThis.File[]): UploadedItem[] => {
+  const uploadedAt = Date.now();
+
+  return files.map((file, index) => ({
+    id: `${uploadedAt}-${index}-${file.name}`,
+    name: file.name,
+    status: "pending_api",
+  }));
 };
+
+const getPendingLabel = (items: UploadedItem[]) =>
+  items.length === 1 ? items[0].name : `${items.length} fichiers en cours`;
 
 function UploadFile() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingLabel, setPendingLabel] = useState("");
 
-  const handleFilesAdded = (files: File[]) => {
+  const handleFilesAdded = (files: globalThis.File[]) => {
     if (files.length === 0) {
       return;
     }
 
-    const uploadedAt = Date.now();
-    const newItems: UploadedItem[] = files.map((file, index) => ({
-      id: `${uploadedAt}-${index}-${file.name}`,
-      name: file.name,
-    }));
+    const newItems = createUploadedItems(files);
 
     setIsUploading(true);
-    setPendingLabel(
-      newItems.length === 1
-        ? newItems[0].name
-        : `${newItems.length} fichiers en cours`,
-    );
+    setPendingLabel(getPendingLabel(newItems));
 
     window.setTimeout(() => {
       setUploadedFiles((previous) => [...newItems.reverse(), ...previous]);
       setIsUploading(false);
       setPendingLabel("");
-    }, 900);
+    }, FAKE_UPLOAD_DELAY_MS);
   };
 
   const handleDelete = (id: string) => {
@@ -47,7 +50,7 @@ function UploadFile() {
         <Upload onFilesAdded={handleFilesAdded} />
       </div>
       <div className="lg:col-span-2">
-        <File
+        <FileList
           files={uploadedFiles}
           isUploading={isUploading}
           pendingLabel={pendingLabel}

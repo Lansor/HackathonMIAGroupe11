@@ -1,12 +1,22 @@
+import { faFolderPlus } from "@fortawesome/free-solid-svg-icons/faFolderPlus";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useRef, useState } from "react";
 
 type UploadProps = {
-  onFilesAdded: (files: File[]) => void;
+  onFilesAdded: (files: globalThis.File[]) => void;
 };
 
 function Upload({ onFilesAdded }: UploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const setDragging = (
+    event: React.DragEvent<HTMLDivElement>,
+    value: boolean,
+  ) => {
+    event.preventDefault();
+    setIsDragging(value);
+  };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files ? Array.from(event.target.files) : [];
@@ -27,31 +37,20 @@ function Upload({ onFilesAdded }: UploadProps) {
           ? "border-violet-500 bg-violet-50"
           : "border-slate-300 bg-white"
       }`}
-      onDragEnter={(event) => {
-        event.preventDefault();
-        setIsDragging(true);
-      }}
-      onDragOver={(event) => {
-        event.preventDefault();
-        setIsDragging(true);
-      }}
-      onDragLeave={(event) => {
-        event.preventDefault();
-        setIsDragging(false);
-      }}
+      onDragEnter={(event) => setDragging(event, true)}
+      onDragOver={(event) => setDragging(event, true)}
+      onDragLeave={(event) => setDragging(event, false)}
       onDrop={handleDrop}
     >
-      <h2 className="mb-2">Upload</h2>
-      <p className="mb-4 text-slate-600">
-        Glisse et depose tes fichiers ici ou clique sur le bouton upload.
-      </p>
+      <h2 className="mb-2">Vos fichiers à traiter</h2>
+      <p className="mb-4 text-slate-600">Glisse et dépose tes fichiers ici</p>
 
       <button
         type="button"
         className="rounded-md bg-violet-600 px-4 py-2 font-semibold text-white hover:bg-violet-700"
         onClick={() => inputRef.current?.click()}
       >
-        Upload
+        <FontAwesomeIcon icon={faFolderPlus} /> fichiers
       </button>
 
       <input
