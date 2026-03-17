@@ -21,12 +21,15 @@ def load_data():
         df = pd.read_csv(CSV_PATH, low_memory=False)
         print(" Dataset CSV chargé avec succès.")
         df['company_name'] = df['denominationUniteLegale'].fillna(df['nomUniteLegale'])
-        return df.dropna(subset=['siren', 'company_name'])
+        # Créer SIRET = SIREN + nicSiegeUniteLegale (padded to 5 digits)
+        df['siret'] = df['siren'].astype(str) + df['nicSiegeUniteLegale'].fillna('00001').astype(str).str.zfill(5)
+        return df.dropna(subset=['siren', 'company_name', 'siret'])
     except Exception as e:
         print(f" Erreur CSV : {e}. Utilisation de données fictives.")
         return pd.DataFrame({
             'siren': [str(fake.numerify('#########')) for _ in range(10)],
-            'company_name': [fake.company() for _ in range(10)]
+            'company_name': [fake.company() for _ in range(10)],
+            'siret': [str(fake.numerify('##############')) for _ in range(10)]
         })
 
 df_sirene = load_data()
@@ -86,6 +89,7 @@ def generate_facture():
     context = {
         'company_name': row['company_name'],
         'siren': str(int(row['siren'])),
+        'siret': str(row['siret']),
         'invoice_number': f"FAC-{fake.numerify('######')}",
         'address': fake.street_address(),
         'zip_code': fake.postcode(),
@@ -121,6 +125,7 @@ def generate_devis():
     context = {
         'company_name': row['company_name'],
         'siren': str(int(row['siren'])),
+        'siret': str(row['siret']),
         'quote_number': f"DEV-{fake.numerify('######')}",
         'address': fake.street_address(),
         'zip_code': fake.postcode(),
@@ -153,7 +158,7 @@ def generate_urssaf():
     
     context = {
         'company_name': row['company_name'],
-        'siret': f"{int(row['siren'])}{fake.numerify('####')}",
+        'siret': str(row['siret']),
         'address': fake.street_address(),
         'zip_code': fake.postcode(),
         'city': fake.city(),
@@ -179,7 +184,7 @@ def generate_kbis():
     context = {
         'company_name': row['company_name'],
         'siren': str(int(row['siren'])),
-        'siret': f"{int(row['siren'])}{fake.numerify('####')}",
+        'siret': str(row['siret']),
         'naf_code': fake.numerify('####Z'),
         'legal_form': random.choice(['SARL', 'SAS', 'EURL', 'SA', 'EI']),
         'capital': f"{random.choice([10000, 20000, 50000, 100000])}",
