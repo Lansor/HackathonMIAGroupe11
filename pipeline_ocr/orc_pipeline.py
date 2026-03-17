@@ -178,7 +178,7 @@ def process_document(file_path, document_id, db):
     processing_time = time.time() - start_time
     avg_conf = sum(p["confidence"] for p in pages_data) / len(pages_data)
 
-    # 📦 Document final (Clean Zone)
+    # Document final (Clean Zone)
     document = {
         "document_id": document_id,
         "filename": file_path.split("/")[-1],
