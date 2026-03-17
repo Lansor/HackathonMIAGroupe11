@@ -8,7 +8,6 @@ const cookieParser = require("cookie-parser");
 const documentRoute = require("./Routes/documentRoute");
 const userRoute = require("./Routes/userRoute");
 const userManagerRoute = require("./Routes/userManagerRoute");
-const filesGeneratorsRoute = require("./Routes/filesGeneratorsRoute");
 const {
   notFoundMiddleware,
   errorMiddleware,
@@ -32,7 +31,6 @@ app.use(
 app.use("/document", documentRoute);
 app.use("/user", userRoute);
 app.use("/user-manager", userManagerRoute);
-app.use("/files-generators", filesGeneratorsRoute);
 
 app.get("/", (_req, res) => {
   res.status(200).json({
@@ -47,7 +45,7 @@ mongoose
   .connect(dbUrl, {})
   .then(() => {
     console.log(`Connected to the MongoDB database!`);
-    
+
     // On lance le serveur seulement si la DB est connectée
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}.`);

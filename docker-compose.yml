@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # Backend
@@ -13,7 +13,7 @@ services:
       DB_URL: mongodb+srv://carlbrgs:xKcbcrj0TwiW4asW@tptwt.dj2ot.mongodb.net/
       SERVER_PORT: 8080
       NODE_ENV: production
-      CLIENT_URL: http://localhost:3000
+      CLIENT_URL: http://localhost:5173
     depends_on:
       - mongodb
     networks:
@@ -27,7 +27,7 @@ services:
       dockerfile: docker/front/Dockerfile
     container_name: hackathon-frontend
     ports:
-      - "3000:80"
+      - "5173:80"
     depends_on:
       - backend
     networks:
