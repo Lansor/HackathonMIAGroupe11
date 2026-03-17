@@ -1,11 +1,11 @@
-import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import './App.css'
+import { useNavigate } from 'react-router-dom'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const navigate = useNavigate()
 
   return (
     <>
@@ -23,9 +23,11 @@ function App() {
         </div>
         <button
           className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          onClick={() => {
+            navigate('/dashboard')
+          }}
         >
-          Count is {count}
+          Aller au dashboard
         </button>
       </section>
 
