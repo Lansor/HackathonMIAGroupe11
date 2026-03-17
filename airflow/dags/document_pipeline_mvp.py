@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ INCOMING_PATH = BASE_DATA_PATH / "incoming"
 RAW_PATH = BASE_DATA_PATH / "raw"
 CLEAN_PATH = BASE_DATA_PATH / "clean"
 CURATED_PATH = BASE_DATA_PATH / "curated"
+MOISE_PIPELINE_PATH = Path("/opt/airflow/hackaipipelinegrp11")
 
 
 def _detect_doc_type(filename: str) -> str:
@@ -41,6 +43,35 @@ def _ensure_paths() -> None:
     CURATED_PATH.mkdir(parents=True, exist_ok=True)
 
 
+def _load_moise_modules() -> tuple[Any, Any, Any]:
+    if not MOISE_PIPELINE_PATH.exists():
+        print("[Moise] dossier hackaipipelinegrp11 non monté, fallback MVP activé")
+        return None, None, None
+
+    path_str = str(MOISE_PIPELINE_PATH)
+    if path_str not in sys.path:
+        sys.path.append(path_str)
+
+    try:
+        from ocr_service import ocr_from_image, ocr_from_pdf
+        from classifier import classify_document
+        from extractor import extract_info
+
+        return (ocr_from_pdf, ocr_from_image), classify_document, extract_info
+    except Exception as exc:
+        print(f"[Moise] import modules impossible: {exc} | fallback MVP activé")
+        return None, None, None
+
+
+def _normalize_doc_type(label: str | None) -> str | None:
+    if not label:
+        return None
+    lowered = label.lower().strip()
+    if lowered == "attestation siret":
+        return "attestation"
+    return lowered
+
+
 def _get_mongo_client() -> pymongo.MongoClient:
     uri = os.environ["MONGODB_URI"]
     return pymongo.MongoClient(uri, serverSelectionTimeoutMS=10000)
@@ -48,6 +79,9 @@ def _get_mongo_client() -> pymongo.MongoClient:
 
 def _get_db(client: pymongo.MongoClient) -> pymongo.database.Database:
     return client.get_database()
+
+
+OCR_FUNCS, CLASSIFY_DOCUMENT, EXTRACT_INFO = _load_moise_modules()
 
 
 @dag(
@@ -143,21 +177,54 @@ def document_pipeline_mvp() -> None:
             source_file = Path(doc["raw_path"])
             text_output_file = CLEAN_PATH / f"{source_file.stem}.txt"
 
-            mocked_text = (
-                f"Document: {source_file.name}\n"
-                f"Type: {doc['detected_type']}\n"
-                "Montant TTC: 1250.90 EUR\n"
-                "Date: 2026-03-16\n"
-                "SIREN: 552100554\n"
-                "IBAN: FR7630006000011234567890189\n"
-            )
-            text_output_file.write_text(mocked_text, encoding="utf-8")
+            detected_type = doc["detected_type"]
+            text = ""
+            ocr_confidence = 0.91
+
+            try:
+                suffix = source_file.suffix.lower()
+
+                if suffix == ".txt":
+                    text = source_file.read_text(encoding="utf-8")
+                elif OCR_FUNCS and suffix == ".pdf":
+                    text = OCR_FUNCS[0](str(source_file))
+                elif OCR_FUNCS and suffix in {".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"}:
+                    text = OCR_FUNCS[1](str(source_file))
+                else:
+                    text = (
+                        f"Document: {source_file.name}\n"
+                        f"Type: {detected_type}\n"
+                        "Montant TTC: 1250.90 EUR\n"
+                        "Date: 2026-03-16\n"
+                        "SIREN: 552100554\n"
+                        "IBAN: FR7630006000011234567890189\n"
+                    )
+                    ocr_confidence = 0.6
+
+                if CLASSIFY_DOCUMENT:
+                    classified = _normalize_doc_type(CLASSIFY_DOCUMENT(text))
+                    if classified and classified != "autre":
+                        detected_type = classified
+            except Exception as exc:
+                print(f"[OCR] erreur pour {source_file.name}: {exc} | fallback mock")
+                text = (
+                    f"Document: {source_file.name}\n"
+                    f"Type: {detected_type}\n"
+                    "Montant TTC: 1250.90 EUR\n"
+                    "Date: 2026-03-16\n"
+                    "SIREN: 552100554\n"
+                    "IBAN: FR7630006000011234567890189\n"
+                )
+                ocr_confidence = 0.6
+
+            text_output_file.write_text(text, encoding="utf-8")
 
             clean_docs.append(
                 {
                     **doc,
+                    "detected_type": detected_type,
                     "ocr_text_path": str(text_output_file),
-                    "ocr_confidence": 0.91,
+                    "ocr_confidence": ocr_confidence,
                     "status": "OCR_DONE",
                     "ocr_at": datetime.utcnow().isoformat(),
                 }
@@ -176,17 +243,33 @@ def document_pipeline_mvp() -> None:
         for doc in clean_docs:
             content = Path(doc["ocr_text_path"]).read_text(encoding="utf-8")
 
-            amount_match = re.search(r"Montant TTC:\s*([0-9]+[\.,][0-9]+)", content)
-            date_match = re.search(r"Date:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", content)
-            siren_match = re.search(r"SIREN:\s*([0-9]{9})", content)
+            extracted_raw = EXTRACT_INFO(content) if EXTRACT_INFO else {}
+
+            amount_list = extracted_raw.get("montant", []) if isinstance(extracted_raw, dict) else []
+            date_list = extracted_raw.get("date", []) if isinstance(extracted_raw, dict) else []
+            siret = extracted_raw.get("siret") if isinstance(extracted_raw, dict) else None
+
+            fallback_amount_match = re.search(r"Montant TTC:\s*([0-9]+[\.,][0-9]+)", content)
+            fallback_date_match = re.search(r"Date:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", content)
+            fallback_siren_match = re.search(r"SIREN:\s*([0-9]{9})", content)
             iban_match = re.search(r"IBAN:\s*([A-Z]{2}[0-9A-Z]{25,32})", content)
 
+            amount_value = None
+            if amount_list:
+                amount_value = amount_list[0].replace("€", "").strip().replace(" ", "")
+            elif fallback_amount_match:
+                amount_value = fallback_amount_match.group(1)
+
+            date_value = date_list[0] if date_list else (fallback_date_match.group(1) if fallback_date_match else None)
+            siren_value = (siret[:9] if siret else None) or (fallback_siren_match.group(1) if fallback_siren_match else None)
+
             extracted = {
-                "amount_ttc": amount_match.group(1) if amount_match else None,
-                "date": date_match.group(1) if date_match else None,
-                "siren": siren_match.group(1) if siren_match else None,
+                "amount_ttc": amount_value,
+                "date": date_value,
+                "siren": siren_value,
                 "iban": iban_match.group(1) if iban_match else None,
                 "doc_type": doc["detected_type"],
+                "extracted_raw": extracted_raw,
             }
 
             updated = {

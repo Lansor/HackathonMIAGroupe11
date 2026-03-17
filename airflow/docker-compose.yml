@@ -15,6 +15,7 @@ x-airflow-common: &airflow-common
     MONGODB_URI: ${MONGODB_URI}
   volumes:
     - ./dags:/opt/airflow/dags
+    - ../hackaipipelinegrp11:/opt/airflow/hackaipipelinegrp11
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ./config:/opt/airflow/config
