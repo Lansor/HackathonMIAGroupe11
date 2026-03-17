@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 
 type LoginProps = {
   onGoRegister: () => void;
@@ -6,14 +9,15 @@ type LoginProps = {
 };
 
 function Login({ onGoRegister, onGoForgetPassword }: LoginProps) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = async () => {
     setIsLoading(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -34,7 +38,12 @@ function Login({ onGoRegister, onGoForgetPassword }: LoginProps) {
         throw new Error(data.message || "Erreur pendant la connexion.");
       }
 
+      if (data.token) {
+        localStorage.setItem("authToken", data.token);
+      }
+
       setSuccessMessage(data.message || "Connexion reussie.");
+      navigate("/upload");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -49,7 +58,10 @@ function Login({ onGoRegister, onGoForgetPassword }: LoginProps) {
   return (
     <form
       className="mx-auto flex w-full max-w-md flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm"
-      onSubmit={handleSubmit}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void handleSubmit();
+      }}
     >
       <h2>Login</h2>
 
@@ -82,17 +94,32 @@ function Login({ onGoRegister, onGoForgetPassword }: LoginProps) {
 
       <label className="flex flex-col gap-2">
         <span>Password</span>
-        <input
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          className="rounded-md border border-slate-300 px-3 py-2"
-          placeholder="********"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          disabled={isLoading}
-          required
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            name="password"
+            autoComplete="current-password"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 pr-10"
+            placeholder="********"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            disabled={isLoading}
+            required
+          />
+          <button
+            type="button"
+            className="absolute inset-y-0 right-2 text-slate-500 hover:text-slate-700"
+            onClick={() => setShowPassword((previous) => !previous)}
+            aria-label={
+              showPassword
+                ? "Masquer le mot de passe"
+                : "Afficher le mot de passe"
+            }
+            disabled={isLoading}
+          >
+            <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+          </button>
+        </div>
       </label>
 
       <button

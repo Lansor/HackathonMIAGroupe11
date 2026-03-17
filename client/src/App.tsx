@@ -1,10 +1,19 @@
 import "./App.css";
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
 import UploadPage from "./pages/UploadPage";
+import NavMenu from "./components/NavMenu";
 
 function RootLayout() {
-  return <Outlet />;
+  const location = useLocation();
+  const showNav = location.pathname !== "/auth";
+
+  return (
+    <>
+      {showNav && <NavMenu />}
+      <Outlet />
+    </>
+  );
 }
 
 function App() {

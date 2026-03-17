@@ -114,10 +114,35 @@ const validateForgotPasswordBody = (req, res, next) => {
   return next();
 };
 
+const validateResetPasswordBody = (req, res, next) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({
+      message: "email et password sont obligatoires.",
+    });
+  }
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({
+      message: "Format d'email invalide.",
+    });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({
+      message: "password doit contenir au moins 8 caracteres.",
+    });
+  }
+
+  return next();
+};
+
 module.exports = {
   requireAuth,
   normalizeAuthBody,
   validateRegisterBody,
   validateLoginBody,
   validateForgotPasswordBody,
+  validateResetPasswordBody,
 };

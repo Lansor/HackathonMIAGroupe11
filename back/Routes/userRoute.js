@@ -3,6 +3,7 @@ const {
   registerUser,
   loginUser,
   forgotPassword,
+  resetPassword,
   getCurrentUser,
 } = require("../Controllers/userController");
 const {
@@ -11,6 +12,7 @@ const {
   validateRegisterBody,
   validateLoginBody,
   validateForgotPasswordBody,
+  validateResetPasswordBody,
 } = require("../Middlewares/authMiddleware");
 
 const router = express.Router();
@@ -22,6 +24,12 @@ router.post(
   normalizeAuthBody,
   validateForgotPasswordBody,
   forgotPassword,
+);
+router.post(
+  "/reset-password",
+  normalizeAuthBody,
+  validateResetPasswordBody,
+  resetPassword,
 );
 router.get("/me", requireAuth, getCurrentUser);
 

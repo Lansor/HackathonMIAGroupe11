@@ -135,6 +135,40 @@ const forgotPassword = async (req, res) => {
   }
 };
 
+const resetPassword = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "email et password sont obligatoires.",
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "Utilisateur introuvable.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({
+      message: "Mot de passe mis a jour avec succes.",
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Erreur serveur lors de la reinitialisation du mot de passe.",
+      error: error.message,
+    });
+  }
+};
+
 const getCurrentUser = async (req, res) => {
   try {
     const { sub } = req.auth || {};
@@ -169,5 +203,6 @@ module.exports = {
   registerUser,
   loginUser,
   forgotPassword,
+  resetPassword,
   getCurrentUser,
 };
