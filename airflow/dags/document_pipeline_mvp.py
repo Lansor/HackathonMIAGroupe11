@@ -167,7 +167,7 @@ def document_pipeline_mvp() -> None:
             if not src.exists():
                 continue
 
-            shutil.copy2(src, dst)
+            shutil.copy(src, dst)
 
             # Stockage binaire dans GridFS
             with open(dst, "rb") as f:
