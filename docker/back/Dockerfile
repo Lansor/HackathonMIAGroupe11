@@ -1,0 +1,23 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Installer Python et dépendances
+RUN apk add --no-cache python3 py3-pip
+
+# Copier et installer les dépendances
+COPY back/package*.json ./
+RUN npm ci --only=production
+
+# Copier le code avec la bonne structure
+COPY back ./back
+COPY script ./script
+
+# Installer les dépendances Python
+RUN pip3 install --no-cache-dir -r script/requirements.txt
+
+EXPOSE 8080
+
+CMD ["node", "back/server.js"]
