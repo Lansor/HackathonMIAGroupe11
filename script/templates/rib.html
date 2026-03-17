@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>RIB</title>
+    <style>
+        body { font-family: "Courier New", Arial, sans-serif; color: #000; font-size: 11px; line-height: 1.2; }
+        .container { padding: 15px; }
+        
+        h1 { text-align: center; font-size: 18px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Grille stricte et compacte */
+        table.rib-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        table.rib-table th, table.rib-table td { border: 1px solid #333; padding: 6px; vertical-align: middle; }
+        
+        /* En-têtes grisés intégrés au tableau */
+        table.rib-table th { background-color: #f0f0f0; text-align: left; font-size: 11px; text-transform: uppercase; }
+        
+        table.rib-table td.label { width: 30%; font-weight: bold; font-size: 10px; text-transform: uppercase; }
+        table.rib-table td.value { width: 70%; font-size: 12px; font-weight: bold; }
+
+        /* Police spécifique pour l'IBAN pour faire pro */
+        .iban { font-family: "Courier New", Courier, monospace; font-size: 14px; letter-spacing: 1px; }
+
+        .footer { text-align: center; font-size: 9px; margin-top: 30px; color: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <h1>Relevé d'Identité Bancaire</h1>
+
+        <table class="rib-table">
+            <tr>
+                <th colspan="2">Titulaire du compte</th>
+            </tr>
+            <tr>
+                <td class="label">Nom/Dénomination :</td>
+                <td class="value">{{ company_name }}</td>
+            </tr>
+        </table>
+
+        <table class="rib-table">
+            <tr>
+                <th colspan="2">Coordonnées bancaires</th>
+            </tr>
+            <tr>
+                <td class="label">IBAN :</td>
+                <td class="value iban">{{ iban }}</td>
+            </tr>
+            <tr>
+                <td class="label">BIC :</td>
+                <td class="value">{{ bic }}</td>
+            </tr>
+        </table>
+
+        <table class="rib-table">
+            <tr>
+                <th colspan="2">Établissement bancaire</th>
+            </tr>
+            <tr>
+                <td class="label">Banque :</td>
+                <td class="value">{{ bank_name }}</td>
+            </tr>
+            <tr>
+                <td class="label">Agence :</td>
+                <td class="value">{{ agency_name }}</td>
+            </tr>
+            <tr>
+                <td class="label">Adresse :</td>
+                <td class="value" style="font-weight: normal;">{{ bank_address }}, {{ bank_city }}</td>
+            </tr>
+        </table>
+
+        <table class="rib-table">
+            <tr>
+                <th colspan="2">Détails du compte</th>
+            </tr>
+            <tr>
+                <td class="label">Numéro de compte :</td>
+                <td class="value">{{ account_number }}</td>
+            </tr>
+            <tr>
+                <td class="label">Type de compte :</td>
+                <td class="value" style="font-weight: normal;">{{ account_type }}</td>
+            </tr>
+            <tr>
+                <td class="label">Devise :</td>
+                <td class="value" style="font-weight: normal;">{{ currency }}</td>
+            </tr>
+            <tr>
+                <td class="label">Date d'ouverture :</td>
+                <td class="value" style="font-weight: normal;">{{ opening_date }}</td>
+            </tr>
+        </table>
+
+        <div class="footer">
+            Généré le {{ date }}<br><br>
+            Ce RIB doit être utilisé uniquement à titre de virement bancaire
+        </div>
+        
+    </div>
+</body>
+</html>
