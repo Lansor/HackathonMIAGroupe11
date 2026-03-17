@@ -1,17 +1,19 @@
 import * as React from 'react';
+import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
+import Icon from '@mui/material/Icon';
 import IconButton from '@mui/material/IconButton';
+import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
 type UserRow = {
   username: string;
@@ -19,7 +21,7 @@ type UserRow = {
   createdAt: Date;
   Fichiers: {
     nom: string;
-    nb: number;
+    flag: string;
   }[];
 };
 
@@ -37,35 +39,20 @@ function createData(username : string, email : string, createdAt : Date): UserRo
       Fichiers: [
         {
           nom: 'devis',
-          nb: 2,
+          flag: 'EXPIRED-DOCUMENT'
         },
         {
-          nom: 'factures fournisseurs',
-          nb: 5,
-        },
-        {
-          nom: 'Attestation SIRET',
-          nb: 1,
-        },
-        {
-          nom: 'Attestation de vigilance URSSAF',
-          nb: 4,
-        },
-        {
-          nom: 'Extrait Kbis',
-          nb: 3,
-        },
-        {
-          nom: 'RIB',
-          nb: 0,
-        },
-      ],
+          nom: 'facture',
+          flag: ''
+        }
+      ]
     };
   }
 
   function Row(props: { row: UserRow }) {
     const { row } = props;
     const [open, setOpen] = React.useState(false);
+    const hasFlag = row.Fichiers.some((fichier) => fichier.flag.trim() !== '');
   
     return (
       <React.Fragment>
@@ -76,7 +63,7 @@ function createData(username : string, email : string, createdAt : Date): UserRo
               size="small"
               onClick={() => setOpen(!open)}
             >
-              {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+              <Icon fontSize="small">{open ? '-' : '+'}</Icon>
             </IconButton>
           </TableCell>
           <TableCell component="th" scope="row">
@@ -84,28 +71,24 @@ function createData(username : string, email : string, createdAt : Date): UserRo
           </TableCell>
           <TableCell align="right">{row.email}</TableCell>
           <TableCell align="right">{row.createdAt.toLocaleDateString('fr-FR')}</TableCell>
+          <TableCell align="center">
+            {hasFlag ? '⚠️' : null}
+          </TableCell>
         </TableRow>
         <TableRow>
-          <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+          <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={5}>
             <Collapse in={open} timeout="auto" unmountOnExit>
               <Box sx={{ margin: 1 }}>
                 <Typography variant="h6" gutterBottom component="div">
                   Fichiers
                 </Typography>
-                <Table size="small" aria-label="purchases">
-                  <TableHead>
-                    <TableRow>
-                      {row.Fichiers.map((fichier) => (
-                        <TableCell key={fichier.nom}>{fichier.nom}</TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
+                <Table size="small" aria-label="fichiers">
                   <TableBody>
-                   <TableRow>
-                    {row.Fichiers.map((fichier) => (
-                      <TableCell key={fichier.nom}>{fichier.nb}</TableCell>
+                    {row.Fichiers.filter((fichier) => fichier.flag !== '').map((fichier) => (
+                      <TableRow key={fichier.nom}>
+                        <TableCell>{`${fichier.nom} a ${fichier.flag}`}</TableCell>
+                      </TableRow>
                     ))}
-                   </TableRow>
                   </TableBody>
                 </Table>
               </Box>
@@ -121,12 +104,48 @@ type UsersTableProps = {
 };
 
 export default function CollapsibleTable({ users }: UsersTableProps) {
+    const [searchValue, setSearchValue] = React.useState('');
+
     const rows: UserRow[] = users.map((user) =>
       createData(user.username, user.email, user.createdAt)
     );
 
+    const filteredRows = rows.filter((row) => {
+      if (!searchValue.trim()) {
+        return true;
+      }
+      const normalizedSearch = searchValue.toLowerCase();
+      return (
+        row.username.toLowerCase().includes(normalizedSearch) ||
+        row.email.toLowerCase().includes(normalizedSearch)
+      );
+    });
+
     return (
       <TableContainer component={Paper}>
+        <Stack spacing={2} sx={{ width: 300, p: 2 }}>
+          <Autocomplete
+            freeSolo
+            id="users-search"
+            disableClearable
+            options={[]}
+            open={false}
+            forcePopupIcon={false}
+            onInputChange={(_, newValue) => setSearchValue(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Rechercher un utilisateur"
+                slotProps={{
+                  input: {
+                    ...params.InputProps,
+                    type: 'search',
+                  },
+                }}
+              />
+            )}
+          />
+        </Stack>
         <Table aria-label="collapsible table">
           <TableHead>
             <TableRow>
@@ -134,12 +153,20 @@ export default function CollapsibleTable({ users }: UsersTableProps) {
               <TableCell>Nom d'utilisateur</TableCell>
               <TableCell align="right">Email</TableCell>
               <TableCell align="right">Date de creation</TableCell>
+              <TableCell align="center" />
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((row) => (
+            {filteredRows.map((row) => (
               <Row key={row.email} row={row} />
             ))}
+            {filteredRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  Aucun utilisateur trouve
+                </TableCell>
+              </TableRow>
+            ) : null}
           </TableBody>
         </Table>
       </TableContainer>
