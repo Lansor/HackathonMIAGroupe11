@@ -17,7 +17,7 @@
 
 """
 OCR PIPELINE - Clean Zone
-Auteur: toi + ChatGPT 😄
+
 
 Description:
 Pipeline complet pour extraire du texte depuis PDF/images,
@@ -41,7 +41,7 @@ from pymongo import MongoClient
 
 
 # =========================
-# 🧼 IMAGE PREPROCESSING
+#  IMAGE PREPROCESSING
 # =========================
 def preprocess_image(image):
     """
@@ -66,7 +66,7 @@ def preprocess_image(image):
 
 
 # =========================
-# 🔄 CORRECTION ROTATION
+#  CORRECTION ROTATION
 # =========================
 def correct_rotation(image):
     """
@@ -91,7 +91,7 @@ def correct_rotation(image):
 
 
 # =========================
-# 🔍 OCR + CONFIDENCE
+#  OCR + CONFIDENCE
 # =========================
 def run_ocr(image):
     """
@@ -115,7 +115,7 @@ def run_ocr(image):
     return text, avg_conf / 100  # normalisé entre 0 et 1
 
 # =========================
-# 📄 PDF → IMAGES
+#  PDF → IMAGES
 # =========================
 def pdf_to_images(pdf_path):
     """
@@ -128,7 +128,7 @@ client = MongoClient("mongodb://localhost:27017/")
 db = client["ocr_database"]
 
 # =========================
-# 🧩 PIPELINE PRINCIPAL
+#  PIPELINE PRINCIPAL
 # =========================
 def process_document(file_path, document_id, db):
     """
@@ -174,7 +174,7 @@ def process_document(file_path, document_id, db):
 
         full_text += text + "\n"
 
-    # 📊 Métriques
+    #  Métriques
     processing_time = time.time() - start_time
     avg_conf = sum(p["confidence"] for p in pages_data) / len(pages_data)
 
@@ -202,7 +202,7 @@ def process_document(file_path, document_id, db):
         }
     }
 
-    # 💾 Insertion MongoDB
+    #  Insertion MongoDB
     db.clean_ocr.insert_one(document)
 
     print(f"OCR terminé: {file_path}")
