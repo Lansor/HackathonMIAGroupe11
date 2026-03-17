@@ -19,10 +19,18 @@ function NavMenu() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    setIsOpen(false);
-    navigate("/auth");
+  const handleLogout = async () => {
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+      await fetch(`${baseUrl}/user/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      localStorage.removeItem("authToken");
+      setIsOpen(false);
+      navigate("/auth");
+    }
   };
 
   return (

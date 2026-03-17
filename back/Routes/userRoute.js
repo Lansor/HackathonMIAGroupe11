@@ -5,6 +5,7 @@ const {
   forgotPassword,
   resetPassword,
   getCurrentUser,
+  logoutUser,
 } = require("../Controllers/userController");
 const {
   requireAuth,
@@ -31,6 +32,7 @@ router.post(
   validateResetPasswordBody,
   resetPassword,
 );
+router.post("/logout", logoutUser);
 router.get("/me", requireAuth, getCurrentUser);
 
 module.exports = router;

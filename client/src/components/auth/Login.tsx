@@ -29,6 +29,7 @@ function Login({ onGoRegister, onGoForgetPassword }: LoginProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
@@ -36,10 +37,6 @@ function Login({ onGoRegister, onGoForgetPassword }: LoginProps) {
 
       if (!response.ok) {
         throw new Error(data.message || "Erreur pendant la connexion.");
-      }
-
-      if (data.token) {
-        localStorage.setItem("authToken", data.token);
       }
 
       setSuccessMessage(data.message || "Connexion reussie.");

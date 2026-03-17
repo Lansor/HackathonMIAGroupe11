@@ -4,11 +4,16 @@ const User = require("../Models/userModel");
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_jwt_secret_change_me";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1d";
+const AUTH_COOKIE_NAME = "authToken";
+const AUTH_COOKIE_MAX_AGE = Number(
+  process.env.AUTH_COOKIE_MAX_AGE || 24 * 60 * 60 * 1000,
+);
 
 const sanitizeUser = (user) => ({
   id: user._id,
   username: user.username,
   email: user.email,
+  role: user.role,
   createdAt: user.createdAt,
 });
 
@@ -18,10 +23,30 @@ const createAccessToken = (user) =>
       sub: String(user._id),
       email: user.email,
       username: user.username,
+      role: user.role,
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN },
   );
+
+const getCookieOptions = () => ({
+  httpOnly: true,
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
+  maxAge: AUTH_COOKIE_MAX_AGE,
+});
+
+const attachAuthCookie = (res, token) => {
+  res.cookie(AUTH_COOKIE_NAME, token, getCookieOptions());
+};
+
+const clearAuthCookie = (res) => {
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+};
 
 const registerUser = async (req, res) => {
   try {
@@ -51,10 +76,12 @@ const registerUser = async (req, res) => {
       password: hashedPassword,
     });
 
+    const token = createAccessToken(createdUser);
+    attachAuthCookie(res, token);
+
     return res.status(201).json({
       message: "Utilisateur cree avec succes.",
       user: sanitizeUser(createdUser),
-      token: createAccessToken(createdUser),
     });
   } catch (error) {
     return res.status(500).json({
@@ -90,10 +117,12 @@ const loginUser = async (req, res) => {
       });
     }
 
+    const token = createAccessToken(user);
+    attachAuthCookie(res, token);
+
     return res.status(200).json({
       message: "Connexion reussie.",
       user: sanitizeUser(user),
-      token: createAccessToken(user),
     });
   } catch (error) {
     return res.status(500).json({
@@ -199,10 +228,19 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
+const logoutUser = (_req, res) => {
+  clearAuthCookie(res);
+
+  return res.status(200).json({
+    message: "Deconnexion reussie.",
+  });
+};
+
 module.exports = {
   registerUser,
   loginUser,
   forgotPassword,
   resetPassword,
   getCurrentUser,
+  logoutUser,
 };

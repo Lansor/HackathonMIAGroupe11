@@ -9,14 +9,15 @@ const isValidEmail = (email) => {
 
 const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
+  const tokenFromHeader =
+    authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = req.cookies?.authToken || tokenFromHeader;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!token) {
     return res.status(401).json({
-      message: "Token manquant. Utilise Authorization: Bearer <token>.",
+      message: "Token manquant.",
     });
   }
-
-  const token = authHeader.slice(7);
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
@@ -138,8 +139,18 @@ const validateResetPasswordBody = (req, res, next) => {
   return next();
 };
 
+const requireAdmin = (req, res, next) => {
+  if (!req.auth || req.auth.role !== "admin") {
+    return res.status(403).json({
+      message: "Acces refuse. Role admin requis.",
+    });
+  }
+  return next();
+};
+
 module.exports = {
   requireAuth,
+  requireAdmin,
   normalizeAuthBody,
   validateRegisterBody,
   validateLoginBody,
