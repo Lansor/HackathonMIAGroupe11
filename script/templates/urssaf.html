@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>URSSAF</title>
+    <style>
+        body { font-family: Helvetica, Arial, sans-serif; color: #333333; font-size: 12px; line-height: 1.4; }
+        .container { padding: 20px; }
+        .logo { font-size: 24px; font-weight: bold; color: #003366; }
+        .doc-title h1 { color: #003366; font-size: 22px; margin: 0; padding: 0; }
+        
+        /* Tableaux pour les cotisations (Identique à la Facture) */
+        table.items { width: 100%; border-collapse: collapse; margin-top: 30px; margin-bottom: 30px; }
+        table.items th { background-color: #f8f9fa; padding: 10px; text-align: left; font-weight: bold; border-bottom: 2px solid #003366; color: #003366; }
+        table.items td { padding: 10px; border-bottom: 1px solid #dddddd; }
+        table.items tr.even td { background-color: #f8f9fa; }
+
+        .footer { text-align: center; margin-top: 40px; font-size: 11px; color: #999999; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-bottom: 2px solid #003366; padding-bottom: 15px; margin-bottom: 25px;">
+            <tr>
+                <td width="50%" valign="top" class="logo">
+                    URSSAF
+                </td>
+                <td width="50%" valign="top" align="right" class="doc-title">
+                    <h1>RÉCAPITULATIF DE COTISATIONS</h1>
+                </td>
+            </tr>
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 30px;">
+            <tr>
+                <td width="50%" valign="top" style="line-height: 1.5;">
+                    <span style="color: #003366; font-size: 11px; font-weight: bold; text-transform: uppercase;">ÉTABLISSEMENT</span><br><br>
+                    <strong>{{ company_name }}</strong><br>
+                    SIRET : {{ siret }}<br>
+                    {{ address }}<br>
+                    {{ zip_code }} {{ city }}
+                </td>
+                <td width="50%" valign="top" style="line-height: 1.5;">
+                    <span style="color: #003366; font-size: 11px; font-weight: bold; text-transform: uppercase;">DOSSIER</span><br><br>
+                    <strong>Période :</strong> {{ period }}<br>
+                    <strong>Date :</strong> {{ date }}<br>
+                    <strong>N° :</strong> {{ file_number }}
+                </td>
+            </tr>
+        </table>
+
+        <table class="items">
+            <thead>
+                <tr>
+                    <th>Type de cotisation</th>
+                    <th style="width: 100px; text-align: right;">Base (€)</th>
+                    <th style="width: 100px; text-align: right;">Montant (€)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Cotisation maladie</td>
+                    <td align="right">{{ base1 }}</td>
+                    <td align="right">{{ amount1 }}</td>
+                </tr>
+                <tr class="even">
+                    <td>Cotisation vieillesse (part patronale)</td>
+                    <td align="right">{{ base2 }}</td>
+                    <td align="right">{{ amount2 }}</td>
+                </tr>
+                <tr>
+                    <td>Contribution d'assurance chômage</td>
+                    <td align="right">{{ base3 }}</td>
+                    <td align="right">{{ amount3 }}</td>
+                </tr>
+                <tr class="even">
+                    <td>Contribution supplémentaire d'allocation familiale</td>
+                    <td align="right">{{ base4 }}</td>
+                    <td align="right">{{ amount4 }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td width="50%"></td>
+                <td width="50%">
+                    <table width="100%" cellpadding="5" cellspacing="0" border="0">
+                        <tr>
+                            <td align="left" style="font-weight: bold; font-size: 16px; color: #003366; border-top: 2px solid #003366; padding-top: 10px;">TOTAL :</td>
+                            <td align="right" style="font-weight: bold; font-size: 16px; color: #003366; border-top: 2px solid #003366; padding-top: 10px;">{{ total_amount }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <div class="footer">
+            Paiement attendu avant le <strong>{{ due_date }}</strong><br>
+            Pour toute question, contactez votre centre URSSAF
+        </div>
+
+    </div>
+</body>
+</html>

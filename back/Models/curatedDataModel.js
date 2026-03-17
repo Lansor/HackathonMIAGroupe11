@@ -6,10 +6,10 @@ const curatedDataSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  document_id: {
-    type: String,
+  raw_document_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "RawDocument",
     required: true,
-    unique: true,
   },
   doc_type: {
     type: String,

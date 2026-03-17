@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>KBIS</title>
+    <style>
+        body { font-family: "Courier New", Courier, monospace; color: #333; font-size: 11px; line-height: 1.2; }
+        .container { padding: 10px 20px; }
+        
+        .header { text-align: center; margin-bottom: 15px; }
+        .header-title { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
+        .header-ref { font-size: 11px; color: #666; margin-top: 2px; }
+        
+        .section-title { font-weight: bold; text-decoration: underline; margin-top: 15px; margin-bottom: 5px; font-size: 12px; }
+        
+        /* Tableaux de données : on utilise collapse et on gère l'espace via un petit padding */
+        table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+        table.data-table td { padding-bottom: 3px; vertical-align: middle; }
+        table.data-table td.label { width: 35%; font-weight: bold; }
+        table.data-table td.value { width: 65%; }
+        
+        /* La petite boîte grise resserrée */
+        .value-box { border: 1px solid #ccc; padding: 2px 6px; background-color: #fcfcfc; }
+
+        .footer { text-align: center; font-size: 10px; margin-top: 25px; color: #555; }
+        .seal { text-align: center; font-weight: bold; color: #444; font-size: 13px; margin: 15px 0 5px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div class="header">
+            <div class="header-title">EXTRAIT D'IMMATRICULATION</div>
+            <div class="header-title">REGISTRE DU COMMERCE ET DES SOCIÉTÉS</div>
+            <div class="header-ref">Greffe du tribunal de commerce</div>
+        </div>
+
+        <div class="section-title">IDENTIFICATION DE L'ÉTABLISSEMENT</div>
+        <table class="data-table" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td class="label">Raison sociale :</td>
+                <td class="value"><div class="value-box">{{ company_name }}</div></td>
+            </tr>
+            <tr>
+                <td class="label">N° SIREN :</td>
+                <td class="value"><div class="value-box">{{ siren }}</div></td>
+            </tr>
+            <tr>
+                <td class="label">N° SIRET :</td>
+                <td class="value"><div class="value-box">{{ siret }}</div></td>
+            </tr>
+            <tr>
+                <td class="label">APE/NAF :</td>
+                <td class="value"><div class="value-box">{{ naf_code }}</div></td>
+            </tr>
+        </table>
+
+        <div class="section-title">INFORMATIONS LÉGALES</div>
+        <table class="data-table" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td class="label">Forme juridique :</td>
+                <td class="value"><div class="value-box">{{ legal_form }}</div></td>
+            </tr>
+            <tr>
+                <td class="label">Capital social :</td>
+                <td class="value"><div class="value-box">{{ capital }} €</div></td>
+            </tr>
+            <tr>
+                <td class="label">Date de création :</td>
+                <td class="value"><div class="value-box">{{ creation_date }}</div></td>
+            </tr>
+            <tr>
+                <td class="label">Gérant/Directeur :</td>
+                <td class="value"><div class="value-box">{{ manager_name }}</div></td>
+            </tr>
+        </table>
+
+        <div class="section-title">ADRESSE DU SIÈGE SOCIAL</div>
+        <table class="data-table" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td class="label"></td>
+                <td class="value">
+                    <div class="value-box">
+                        {{ address }}<br>
+                        {{ zip_code }} {{ city }}
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="section-title">ACTIVITÉS</div>
+        <table class="data-table" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td class="label"></td>
+                <td class="value"><div class="value-box">{{ business_activity }}</div></td>
+            </tr>
+        </table>
+
+        <div class="seal">
+            ✓ Document officiel
+        </div>
+
+        <div class="footer">
+            Extrait généré le {{ date }} - Valide {{ validity_period }}<br>
+            Registre du commerce et des sociétés
+        </div>
+
+    </div>
+</body>
+</html>
