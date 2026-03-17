@@ -63,13 +63,42 @@ def _load_moise_modules() -> tuple[Any, Any, Any]:
         return None, None, None
 
 
-def _normalize_doc_type(label: str | None) -> str | None:
+def _normalize_doc_type(label: Any) -> str | None:
     if not label:
         return None
+
+    if isinstance(label, dict):
+        label = label.get("type_document")
+
+    if not isinstance(label, str):
+        return None
+
     lowered = label.lower().strip()
     if lowered == "attestation siret":
         return "attestation"
     return lowered
+
+
+def _parse_date_value(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    value = value.strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _to_float(value: str | None) -> float | None:
+    if not value:
+        return None
+    cleaned = value.replace("€", "").replace("EUR", "").replace(" ", "").replace(",", ".")
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
 
 
 def _get_mongo_client() -> pymongo.MongoClient:
@@ -202,9 +231,12 @@ def document_pipeline_mvp() -> None:
                     ocr_confidence = 0.6
 
                 if CLASSIFY_DOCUMENT:
-                    classified = _normalize_doc_type(CLASSIFY_DOCUMENT(text))
+                    classified_output = CLASSIFY_DOCUMENT(text)
+                    classified = _normalize_doc_type(classified_output)
                     if classified and classified != "autre":
                         detected_type = classified
+                    if isinstance(classified_output, dict):
+                        ocr_confidence = max(ocr_confidence, float(classified_output.get("confidence", 0.0)))
             except Exception as exc:
                 print(f"[OCR] erreur pour {source_file.name}: {exc} | fallback mock")
                 text = (
@@ -253,6 +285,13 @@ def document_pipeline_mvp() -> None:
             fallback_date_match = re.search(r"Date:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", content)
             fallback_siren_match = re.search(r"SIREN:\s*([0-9]{9})", content)
             iban_match = re.search(r"IBAN:\s*([A-Z]{2}[0-9A-Z]{25,32})", content)
+            siret_match = re.search(r"\b([0-9]{14})\b", content)
+            tva_match = re.search(r"\b(FR[0-9]{2}\s?[0-9]{9})\b", content)
+            ht_match = re.search(r"(?:HT|Montant\s*HT|Total\s*HT)\s*[:=]?\s*([0-9]+[\.,][0-9]+)", content, flags=re.IGNORECASE)
+            ttc_match = re.search(r"(?:TTC|Montant\s*TTC|Total\s*TTC)\s*[:=]?\s*([0-9]+[\.,][0-9]+)", content, flags=re.IGNORECASE)
+            tva_rate_match = re.search(r"(?:TVA|Taux\s*TVA)\s*[:=]?\s*([0-9]{1,2}(?:[\.,][0-9]+)?)\s*%", content, flags=re.IGNORECASE)
+            date_delivrance_match = re.search(r"(?:Date\s*de\s*d[ée]livrance|D[ée]livr[ée]\s*le)\s*[:=]?\s*([0-9]{2}[/-][0-9]{2}[/-][0-9]{4}|[0-9]{4}-[0-9]{2}-[0-9]{2})", content, flags=re.IGNORECASE)
+            date_expiration_match = re.search(r"(?:Date\s*d['’]?expiration|Valable\s*jusqu['’]?au?|Fin\s*de\s*validit[ée])\s*[:=]?\s*([0-9]{2}[/-][0-9]{2}[/-][0-9]{4}|[0-9]{4}-[0-9]{2}-[0-9]{2})", content, flags=re.IGNORECASE)
 
             amount_value = None
             if amount_list:
@@ -262,11 +301,18 @@ def document_pipeline_mvp() -> None:
 
             date_value = date_list[0] if date_list else (fallback_date_match.group(1) if fallback_date_match else None)
             siren_value = (siret[:9] if siret else None) or (fallback_siren_match.group(1) if fallback_siren_match else None)
+            siret_value = siret or (siret_match.group(1) if siret_match else None)
 
             extracted = {
-                "amount_ttc": amount_value,
-                "date": date_value,
+                "amount_ht": ht_match.group(1) if ht_match else None,
+                "amount_ttc": (ttc_match.group(1) if ttc_match else amount_value),
+                "date_emission": date_value,
+                "date_delivrance": date_delivrance_match.group(1) if date_delivrance_match else None,
+                "date_expiration": date_expiration_match.group(1) if date_expiration_match else None,
                 "siren": siren_value,
+                "siret": siret_value,
+                "tva": tva_match.group(1).replace(" ", "") if tva_match else None,
+                "tva_rate": tva_rate_match.group(1).replace(",", ".") if tva_rate_match else None,
                 "iban": iban_match.group(1) if iban_match else None,
                 "doc_type": doc["detected_type"],
                 "extracted_raw": extracted_raw,
@@ -306,21 +352,212 @@ def document_pipeline_mvp() -> None:
     @task
     def validate_business_rules(extracted_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         validated_docs: list[dict[str, Any]] = []
+        client = _get_mongo_client()
+        db = _get_db(client)
+        curated_col = db["curated_data"]
+        suppliers_col = db["supplier_status"]
 
         for doc in extracted_docs:
             fields = doc["extracted_fields"]
             alerts: list[dict[str, str]] = []
+            status = "VALIDATED"
 
-            if fields.get("doc_type") in {"facture", "devis"} and not fields.get("amount_ttc"):
-                alerts.append({"level": "critical", "message": "Montant TTC manquant"})
+            doc_type = fields.get("doc_type")
+            siren = fields.get("siren")
+            siret = fields.get("siret")
+            if not siren and siret:
+                siren = siret[:9]
 
-            if not fields.get("date"):
-                alerts.append({"level": "warning", "message": "Date manquante"})
+            now = datetime.utcnow()
 
-            if fields.get("siren") and len(fields["siren"]) != 9:
+            if doc_type == "kbis":
+                date_delivrance = _parse_date_value(fields.get("date_delivrance") or fields.get("date_emission"))
+
+                if not siren:
+                    alerts.append({"level": "critical", "message": "KBIS sans SIREN exploitable"})
+                    status = "NEEDS_REVIEW"
+                else:
+                    current_kbis = curated_col.find_one(
+                        {"doc_type": "kbis", "siren": siren, "is_active": True},
+                        sort=[("updated_at", pymongo.DESCENDING)],
+                    )
+
+                    if current_kbis:
+                        current_date = _parse_date_value(current_kbis.get("date_delivrance"))
+                        if date_delivrance and current_date and date_delivrance > current_date:
+                            curated_col.update_one(
+                                {"_id": current_kbis["_id"]},
+                                {"$set": {"is_active": False, "archived_at": now.isoformat()}},
+                            )
+                        elif current_date and (not date_delivrance or date_delivrance <= current_date):
+                            alerts.append({"level": "warning", "message": "KBIS plus ancien que celui déjà enregistré"})
+                            status = "NEEDS_REVIEW"
+
+                    if date_delivrance and (now - date_delivrance).days > 90:
+                        alerts.append({"level": "critical", "message": "KBIS obsolète (> 3 mois)"})
+                        status = "INCOMPLET_OBSOLETE"
+
+            elif doc_type == "rib":
+                iban = fields.get("iban")
+                kbis_ok = bool(
+                    siren
+                    and curated_col.find_one(
+                        {
+                            "doc_type": "kbis",
+                            "siren": siren,
+                            "is_active": True,
+                            "status": {"$in": ["VALIDATED", "UPDATED"]},
+                        }
+                    )
+                )
+
+                if not iban:
+                    alerts.append({"level": "critical", "message": "RIB sans IBAN"})
+                    status = "NEEDS_REVIEW"
+
+                if not kbis_ok:
+                    alerts.append({"level": "warning", "message": "Aucun KBIS validé correspondant au RIB"})
+                    status = "PENDING"
+
+                if siren:
+                    existing_rib = curated_col.find_one({"doc_type": "rib", "siren": siren, "is_active": True})
+                    if existing_rib:
+                        curated_col.update_one(
+                            {"_id": existing_rib["_id"]},
+                            {"$set": {"is_active": False, "archived_at": now.isoformat()}},
+                        )
+
+            elif doc_type == "attestation":
+                expiration = _parse_date_value(fields.get("date_expiration"))
+                link_siren = siren or (siret[:9] if siret else None)
+
+                kbis_ok = bool(
+                    link_siren
+                    and curated_col.find_one(
+                        {
+                            "doc_type": "kbis",
+                            "siren": link_siren,
+                            "is_active": True,
+                            "status": {"$in": ["VALIDATED", "UPDATED"]},
+                        }
+                    )
+                )
+
+                if not kbis_ok:
+                    alerts.append({"level": "warning", "message": "Attestation sans KBIS lié via SIRET/SIREN"})
+                    status = "PENDING"
+
+                if expiration and expiration.date() < now.date():
+                    alerts.append({"level": "critical", "message": "Attestation URSSAF expirée: fournisseur bloqué paiement"})
+                    status = "BLOQUE_PAIEMENT"
+                    if link_siren:
+                        suppliers_col.update_one(
+                            {"siren": link_siren},
+                            {
+                                "$set": {
+                                    "siren": link_siren,
+                                    "payment_status": "BLOCKED",
+                                    "reason": "URSSAF_EXPIRED",
+                                    "updated_at": now.isoformat(),
+                                }
+                            },
+                            upsert=True,
+                        )
+
+            elif doc_type == "devis":
+                amount_ht = _to_float(fields.get("amount_ht"))
+                kbis_ok = bool(
+                    siren
+                    and curated_col.find_one(
+                        {
+                            "doc_type": "kbis",
+                            "siren": siren,
+                            "is_active": True,
+                            "status": {"$in": ["VALIDATED", "UPDATED"]},
+                        }
+                    )
+                )
+
+                if not kbis_ok:
+                    alerts.append({"level": "critical", "message": "Devis émis par une entreprise non validée (KBIS manquant)"})
+                    status = "NEEDS_REVIEW"
+
+                if amount_ht is None:
+                    alerts.append({"level": "critical", "message": "Montant HT manquant sur devis"})
+                    status = "NEEDS_REVIEW"
+                else:
+                    fields["montant_max_autorise"] = amount_ht
+
+            elif doc_type == "facture":
+                amount_ht = _to_float(fields.get("amount_ht"))
+                amount_ttc = _to_float(fields.get("amount_ttc"))
+                tva_rate = _to_float(fields.get("tva_rate"))
+
+                if amount_ht is None or amount_ttc is None or tva_rate is None:
+                    alerts.append({"level": "warning", "message": "Facture incomplète pour contrôle HT/TVA/TTC"})
+                    status = "NEEDS_REVIEW"
+                else:
+                    expected_ttc = round(amount_ht * (1 + tva_rate / 100), 2)
+                    if abs(expected_ttc - amount_ttc) > 0.02:
+                        alerts.append({"level": "critical", "message": "Incohérence facture: HT + TVA != TTC"})
+                        status = "NEEDS_REVIEW"
+
+                link_siren = siren or (siret[:9] if siret else None)
+                kbis_ok = bool(
+                    link_siren
+                    and curated_col.find_one(
+                        {
+                            "doc_type": "kbis",
+                            "siren": link_siren,
+                            "is_active": True,
+                            "status": {"$in": ["VALIDATED", "UPDATED"]},
+                        }
+                    )
+                )
+                if not kbis_ok:
+                    alerts.append({"level": "critical", "message": "SIRET/SIREN facture absent de la base fournisseurs validés"})
+                    status = "NEEDS_REVIEW"
+
+                latest_devis = None
+                if link_siren:
+                    latest_devis = curated_col.find_one(
+                        {
+                            "doc_type": "devis",
+                            "siren": link_siren,
+                            "is_active": True,
+                            "status": {"$in": ["VALIDATED", "UPDATED"]},
+                        },
+                        sort=[("updated_at", pymongo.DESCENDING)],
+                    )
+                montant_max = _to_float(latest_devis.get("montant_max_autorise")) if latest_devis else None
+                if montant_max is not None and amount_ttc is not None and amount_ttc > montant_max:
+                    alerts.append({"level": "critical", "message": "Dépassement de budget: Total facture > Total devis"})
+                    status = "VALIDATION_HUMAINE"
+
+            if siren and len(siren) != 9:
                 alerts.append({"level": "warning", "message": "SIREN invalide"})
+                if status == "VALIDATED":
+                    status = "NEEDS_REVIEW"
 
-            status = "VALIDATED" if len(alerts) == 0 else "NEEDS_REVIEW"
+            curated_col.update_one(
+                {"document_id": doc["document_id"]},
+                {
+                    "$set": {
+                        "document_id": doc["document_id"],
+                        "doc_type": doc_type,
+                        "siren": siren,
+                        "siret": siret,
+                        "fields": fields,
+                        "status": status,
+                        "alerts": alerts,
+                        "is_active": True,
+                        "updated_at": now.isoformat(),
+                        "date_delivrance": fields.get("date_delivrance"),
+                        "montant_max_autorise": fields.get("montant_max_autorise"),
+                    }
+                },
+                upsert=True,
+            )
 
             validated_docs.append(
                 {
@@ -331,6 +568,7 @@ def document_pipeline_mvp() -> None:
                 }
             )
 
+        client.close()
         return validated_docs
 
     @task
