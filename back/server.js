@@ -47,7 +47,8 @@ mongoose
   .connect(dbUrl, {})
   .then(() => {
     console.log(`Connected to the MongoDB database!`);
-
+    
+    // On lance le serveur seulement si la DB est connectée
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}.`);
     });
