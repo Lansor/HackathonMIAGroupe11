@@ -1,0 +1,208 @@
+"""
+    RAW ZONE (MongoDB / stockage fichiers)
+        ↓
+    [1] Extraction fichier
+            ↓
+    [2] Préprocessing image
+            ↓
+    [3] OCR (Tesseract)
+            ↓
+    [4] Post-processing (nettoyage texte + score)
+            ↓
+    [5] Stockage MongoDB (clean_ocr)
+            ↓
+    [6] Monitoring (Airflow DAG)
+
+"""
+
+"""
+OCR PIPELINE - Clean Zone
+Auteur: toi + ChatGPT 😄
+
+Description:
+Pipeline complet pour extraire du texte depuis PDF/images,
+appliquer un preprocessing, calculer un score de confiance,
+et stocker dans MongoDB (clean_ocr).
+"""
+
+import cv2
+import pytesseract
+import numpy as np
+import time
+from pdf2image import convert_from_path
+from pymongo import MongoClient
+from datetime import datetime
+
+# 🔧 Spécifique macOS (Apple Silicon)
+pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
+
+from pymongo import MongoClient
+
+
+
+# =========================
+# 🧼 IMAGE PREPROCESSING
+# =========================
+def preprocess_image(image):
+    """
+    Améliore la qualité de l'image pour OCR
+    
+    Étapes:
+    - grayscale
+    - binarisation
+    - réduction du bruit
+    """
+
+    # Conversion en niveaux de gris
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Binarisation (noir/blanc)
+    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+
+    # Réduction du bruit
+    denoised = cv2.medianBlur(thresh, 3)
+
+    return denoised
+
+
+# =========================
+# 🔄 CORRECTION ROTATION
+# =========================
+def correct_rotation(image):
+    """
+    Corrige automatiquement l'orientation du texte
+    """
+    try:
+        osd = pytesseract.image_to_osd(image)
+        angle = int(osd.split("Rotate: ")[1].split("\n")[0])
+
+        if angle != 0:
+            (h, w) = image.shape[:2]
+            center = (w // 2, h // 2)
+
+            matrix = cv2.getRotationMatrix2D(center, -angle, 1.0)
+            image = cv2.warpAffine(image, matrix, (w, h))
+
+    except Exception:
+        # fallback si OSD échoue
+        pass
+
+    return image
+
+
+# =========================
+# 🔍 OCR + CONFIDENCE
+# =========================
+def run_ocr(image):
+    """
+    Lance l'OCR et calcule un score de confiance moyen
+    """
+
+    data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+
+    # Reconstruction du texte
+    words = [w for w in data['text'] if w.strip() != ""]
+    text = " ".join(words)
+
+    # Calcul du score de confiance
+    confidences = [
+        int(conf) for conf in data['conf']
+        if conf != '-1'
+    ]
+
+    avg_conf = sum(confidences) / len(confidences) if confidences else 0
+
+    return text, avg_conf / 100  # normalisé entre 0 et 1
+
+# =========================
+# 📄 PDF → IMAGES
+# =========================
+def pdf_to_images(pdf_path):
+    """
+    Convertit un PDF en liste d'images
+    """
+    return convert_from_path(pdf_path)
+
+# Connexion MongoDB
+client = MongoClient("mongodb://localhost:27017/")
+db = client["ocr_database"]
+
+# =========================
+# 🧩 PIPELINE PRINCIPAL
+# =========================
+def process_document(file_path, document_id, db):
+    """
+    Pipeline complet OCR
+    
+    Params:
+    - file_path: chemin du fichier
+    - document_id: ID du document raw
+    - db: connexion MongoDB
+    """
+
+    start_time = time.time()
+
+    pages_data = []
+    full_text = ""
+
+    # 🔀 Gestion PDF vs image
+    if file_path.endswith(".pdf"):
+        images = pdf_to_images(file_path)
+        source_type = "pdf"
+    else:
+        images = [cv2.imread(file_path)]
+        source_type = "image"
+
+    # 🔄 Traitement page par page
+    for i, img in enumerate(images):
+
+        # Conversion PIL → OpenCV si PDF
+        img = np.array(img)
+
+        # Pipeline preprocessing
+        img = correct_rotation(img)
+        img = preprocess_image(img)
+
+        # OCR
+        text, conf = run_ocr(img)
+
+        pages_data.append({
+            "page_number": i + 1,
+            "text": text,
+            "confidence": conf
+        })
+
+        full_text += text + "\n"
+
+    # 📊 Métriques
+    processing_time = time.time() - start_time
+    avg_conf = sum(p["confidence"] for p in pages_data) / len(pages_data)
+
+    # 📦 Document final (Clean Zone)
+    document = {
+        "document_id": document_id,
+        "filename": file_path.split("/")[-1],
+        "source": source_type,
+
+        "ocr": {
+            "language": "fra",
+            "full_text": full_text,
+            "pages": pages_data
+        },
+
+        "metrics": {
+            "avg_confidence": avg_conf,
+            "processing_time_sec": processing_time
+        },
+
+        "processing": {
+            "engine": "tesseract",
+            "preprocessing": ["grayscale", "threshold", "denoise", "rotation"],
+            "created_at": datetime.utcnow()
+        }
+    }
+
+    # 💾 Insertion MongoDB
+    db.clean_ocr.insert_one(document)
+
+    print(f"OCR terminé: {file_path}")
