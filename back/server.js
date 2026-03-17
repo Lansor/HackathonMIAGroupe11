@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
@@ -11,7 +11,11 @@ const mongoose = require("mongoose");
 const dbURL = process.env.DB_URL;
 const dbUrl = `${dbURL}`;
 
-//const userRoute = require("./Routes/userRoute");
+const userRoute = require("./Routes/userRoute");
+const {
+  notFoundMiddleware,
+  errorMiddleware,
+} = require("./Middlewares/errorMiddleware");
 //const documentRoute = require("./Routes/documentRoute");
 
 mongoose
@@ -26,5 +30,16 @@ mongoose
 
 app.use(cors());
 
-//app.use("/user", userRoute);
+app.use("/user", userRoute);
 //app.use("/document", documentRoute);
+
+app.get("/", (_req, res) => {
+  res.status(200).json({ message: "API is running" });
+});
+
+app.use(notFoundMiddleware);
+app.use(errorMiddleware);
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
