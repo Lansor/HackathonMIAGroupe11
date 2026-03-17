@@ -17,7 +17,7 @@
 
 """
 OCR PIPELINE - Clean Zone
-Auteur: toi + ChatGPT 😄
+
 
 Description:
 Pipeline complet pour extraire du texte depuis PDF/images,
@@ -26,6 +26,7 @@ et stocker dans MongoDB (clean_ocr).
 """
 
 import cv2
+import os
 import pytesseract
 import numpy as np
 import time
@@ -33,15 +34,15 @@ from pdf2image import convert_from_path
 from pymongo import MongoClient
 from datetime import datetime
 
-# 🔧 Spécifique macOS (Apple Silicon)
-pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
+tesseract_path = os.getenv("TESSERACT_CMD", "tesseract")  # par défaut 'tesseract' dans PATH
+pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
 from pymongo import MongoClient
 
 
 
 # =========================
-# 🧼 IMAGE PREPROCESSING
+#  IMAGE PREPROCESSING
 # =========================
 def preprocess_image(image):
     """
@@ -66,7 +67,7 @@ def preprocess_image(image):
 
 
 # =========================
-# 🔄 CORRECTION ROTATION
+# CORRECTION ROTATION
 # =========================
 def correct_rotation(image):
     """
@@ -91,7 +92,7 @@ def correct_rotation(image):
 
 
 # =========================
-# 🔍 OCR + CONFIDENCE
+# OCR + CONFIDENCE
 # =========================
 def run_ocr(image):
     """
@@ -115,7 +116,7 @@ def run_ocr(image):
     return text, avg_conf / 100  # normalisé entre 0 et 1
 
 # =========================
-# 📄 PDF → IMAGES
+# PDF → IMAGES
 # =========================
 def pdf_to_images(pdf_path):
     """
@@ -128,7 +129,7 @@ client = MongoClient("mongodb://localhost:27017/")
 db = client["ocr_database"]
 
 # =========================
-# 🧩 PIPELINE PRINCIPAL
+# PIPELINE PRINCIPAL
 # =========================
 def process_document(file_path, document_id, db):
     """
@@ -202,7 +203,7 @@ def process_document(file_path, document_id, db):
         }
     }
 
-    # 💾 Insertion MongoDB
+    # Insertion MongoDB
     db.clean_ocr.insert_one(document)
 
     print(f"OCR terminé: {file_path}")
