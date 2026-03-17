@@ -1,4 +1,6 @@
+const bcrypt = require("bcryptjs");
 const User = require("../Models/userModel");
+const seedData = require("../data/seed-users.json");
 
 const sanitizeUser = (user) => ({
   id: user._id,
@@ -112,4 +114,49 @@ const deleteUser = async (req, res) => {
   }
 };
 
-module.exports = { getAllUsers, getUserById, updateUserRole, deleteUser };
+// POST /user-manager/seed  — crée les 25 users définis dans seed-users.json
+const seedUsers = async (_req, res) => {
+  try {
+    const hashedPassword = await bcrypt.hash(seedData.password, 12);
+
+    const results = { created: [], skipped: [] };
+
+    for (const u of seedData.users) {
+      const exists = await User.findOne({
+        $or: [{ email: u.email }, { username: u.username }],
+      });
+
+      if (exists) {
+        results.skipped.push(u.username);
+        continue;
+      }
+
+      await User.create({
+        username: u.username,
+        email: u.email,
+        password: hashedPassword,
+        role: "user",
+      });
+      results.created.push(u.username);
+    }
+
+    return res.status(201).json({
+      message: `Seed terminé : ${results.created.length} créé(s), ${results.skipped.length} ignoré(s) (déjà existants).`,
+      created: results.created,
+      skipped: results.skipped,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Erreur serveur lors du seed des utilisateurs.",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  getAllUsers,
+  getUserById,
+  updateUserRole,
+  deleteUser,
+  seedUsers,
+};

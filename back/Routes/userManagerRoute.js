@@ -7,6 +7,7 @@ const {
   getUserById,
   updateUserRole,
   deleteUser,
+  seedUsers,
 } = require("../Controllers/userManagerController");
 
 // Toutes les routes exigent d'être connecté ET d'avoir le role admin
@@ -16,5 +17,6 @@ router.get("/", getAllUsers);
 router.get("/:id", getUserById);
 router.patch("/:id/role", updateUserRole);
 router.delete("/:id", deleteUser);
+router.post("/seed", seedUsers);
 
 module.exports = router;

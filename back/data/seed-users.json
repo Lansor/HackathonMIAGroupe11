@@ -1,0 +1,30 @@
+{
+  "password": "Team11@2026",
+  "users": [
+    { "username": "alice.martin",   "email": "alice.martin@team11.fr" },
+    { "username": "baptiste.simon", "email": "baptiste.simon@team11.fr" },
+    { "username": "camille.leroy",  "email": "camille.leroy@team11.fr" },
+    { "username": "david.moreau",   "email": "david.moreau@team11.fr" },
+    { "username": "emma.fournier",  "email": "emma.fournier@team11.fr" },
+    { "username": "felix.girard",   "email": "felix.girard@team11.fr" },
+    { "username": "gabriel.andre",  "email": "gabriel.andre@team11.fr" },
+    { "username": "hugo.pierre",    "email": "hugo.pierre@team11.fr" },
+    { "username": "ines.lambert",   "email": "ines.lambert@team11.fr" },
+    { "username": "julien.roux",    "email": "julien.roux@team11.fr" },
+    { "username": "kevin.blanc",    "email": "kevin.blanc@team11.fr" },
+    { "username": "laura.guerin",   "email": "laura.guerin@team11.fr" },
+    { "username": "marc.bonnet",    "email": "marc.bonnet@team11.fr" },
+    { "username": "nora.legrand",   "email": "nora.legrand@team11.fr" },
+    { "username": "oscar.garnier",  "email": "oscar.garnier@team11.fr" },
+    { "username": "pauline.faure",  "email": "pauline.faure@team11.fr" },
+    { "username": "quentin.dumas",  "email": "quentin.dumas@team11.fr" },
+    { "username": "rachel.henry",   "email": "rachel.henry@team11.fr" },
+    { "username": "samuel.meyer",   "email": "samuel.meyer@team11.fr" },
+    { "username": "therese.perrin", "email": "therese.perrin@team11.fr" },
+    { "username": "ugo.renard",     "email": "ugo.renard@team11.fr" },
+    { "username": "valerie.morel",  "email": "valerie.morel@team11.fr" },
+    { "username": "william.robin",  "email": "william.robin@team11.fr" },
+    { "username": "xavier.david",   "email": "xavier.david@team11.fr" },
+    { "username": "yasmine.thomas", "email": "yasmine.thomas@team11.fr" }
+  ]
+}
