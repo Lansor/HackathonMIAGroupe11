@@ -2,7 +2,7 @@ import os
 from ocr_service import ocr_from_pdf, ocr_from_image
 from classifier import classify_document
 from extractor import extract_info
-from mongo.service import store_raw, store_clean, store_curated
+from mongo_service import store_raw, store_clean, store_curated
 
 def process_document(file_path):
     ext = file_path.lower().split('.')[-1]

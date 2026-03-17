@@ -1,8 +1,18 @@
+import os
+
+from dotenv import load_dotenv
 from pymongo import MongoClient
 
-# Connexion MongoDB
-client = MongoClient("mongodb+srv://carlbrgs:xKcbcrj0TwiW4asW@tptwt.dj2ot.mongodb.net/") 
-db = client['nom_de_la_base']
+load_dotenv()
+
+mongo_uri = os.getenv("MONGODB_URI")
+if not mongo_uri:
+    raise RuntimeError("MONGODB_URI is missing in environment variables.")
+
+mongo_db_name = os.getenv("MONGODB_DBNAME", "hackathon")
+
+client = MongoClient(mongo_uri)
+db = client[mongo_db_name]
 
 # Zones
 raw_collection = db.raw_zone
