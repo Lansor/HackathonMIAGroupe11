@@ -1,4 +1,134 @@
 const mongoose = require('mongoose');
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+// Logique pour générer un document PDF
+const generateDocument = async (req, res) => {
+    try {
+        const { docType } = req.params;
+        
+        // Types de documents supportés
+        const validTypes = ['facture', 'devis', 'urssaf', 'kbis', 'rib'];
+        
+        if (!validTypes.includes(docType.toLowerCase())) {
+            return res.status(400).send({ 
+                error: `Type de document invalide. Types supportés : ${validTypes.join(', ')}` 
+            });
+        }
+
+        // Chemin du script Python
+        const scriptPath = path.join(__dirname, '../../script/generateDocuments.py');
+
+        // Exécuter le script Python avec le type de document
+        return new Promise((resolve, reject) => {
+            const pythonProcess = spawn('py', [scriptPath, docType.toLowerCase()], {
+                cwd: path.join(__dirname, '../../script')
+            });
+
+            let stdout = '';
+            let stderr = '';
+
+            pythonProcess.stdout.on('data', (data) => {
+                stdout += data.toString();
+            });
+
+            pythonProcess.stderr.on('data', (data) => {
+                stderr += data.toString();
+                console.log('[Python stderr]:', data.toString());
+            });
+
+            pythonProcess.on('close', (code) => {
+                if (code !== 0) {
+                    console.error("Python script error:", stderr);
+                    return res.status(500).send({ 
+                        error: 'Erreur lors de la génération du document',
+                        details: stderr 
+                    });
+                }
+
+                try {
+                    // Parser la réponse JSON du script Python
+                    // Il peut y avoir des logs avant le JSON, donc on cherche la première ligne valide JSON
+                    const lines = stdout.trim().split('\n');
+                    let result = null;
+                    
+                    // Chercher depuis la fin pour trouver le JSON
+                    for (let i = lines.length - 1; i >= 0; i--) {
+                        const line = lines[i].trim();
+                        if (line.startsWith('{')) {
+                            try {
+                                result = JSON.parse(line);
+                                break;
+                            } catch (e) {
+                                // Continuer à chercher
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    if (!result) {
+                        throw new Error('Aucun JSON trouvé dans la sortie du script');
+                    }
+                    
+                    if (!result.success) {
+                        return res.status(500).send({ 
+                            error: 'Erreur lors de la génération',
+                            details: result.error 
+                        });
+                    }
+
+                    // Récupérer le chemin absolu du fichier
+                    const filePath = path.resolve(
+                        path.join(__dirname, '../../script', result.filepath)
+                    );
+
+                    console.log("Generated file path:", filePath);
+
+                    // Vérifier que le fichier existe
+                    if (!fs.existsSync(filePath)) {
+                        return res.status(500).send({ 
+                            error: 'Fichier généré non trouvé'
+                        });
+                    }
+
+                    // Lire le fichier
+                    const fileContent = fs.readFileSync(filePath);
+                    
+                    // Envoyer le fichier au client
+                    res.set('Content-Type', 'application/pdf');
+                    res.set('Content-Disposition', `attachment; filename="${result.filename}"`);
+                    res.send(fileContent);
+                    
+                    console.log(`Document envoyé avec succès: ${result.filename}`);
+                    
+                    // Supprimer le fichier temporaire après l'envoi
+                    fs.unlink(filePath, (err) => {
+                        if (err) console.error("Error deleting temporary file:", err);
+                        else console.log("Temporary file deleted:", filePath);
+                    });
+                    
+                } catch (error) {
+                    console.error("Error parsing Python response:", error.message);
+                    res.status(500).send({ 
+                        error: 'Erreur lors du traitement de la réponse du script',
+                        details: error.message 
+                    });
+                }
+            });
+
+            pythonProcess.on('error', (error) => {
+                console.error("Error spawning python process:", error.message);
+                res.status(500).send({ 
+                    error: 'Erreur lors de l\'exécution du script'
+                });
+            });
+        });
+    } catch (error) {
+        console.log("Error during generation:", error.message);
+        res.status(400).send({ error: error.message });
+    }
+};
 
 // Logique pour l'upload (appelée après que Multer ait fait son travail)
 const uploadDocument = async (req, res) => {
@@ -89,8 +219,11 @@ const getDocumentInfo = async (req, res) => {
     }
 };
 
+
+
 module.exports = { 
     uploadDocument, 
     downloadDocument, 
-    getDocumentInfo 
+    getDocumentInfo,
+    generateDocument
 };
