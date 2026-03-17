@@ -1,8 +1,8 @@
 from pymongo import MongoClient
 
 # Connexion MongoDB
-client = MongoClient("mongodb://localhost:27017/")  # changer si nécessaire
-db = client.hackathon_docs
+client = MongoClient("mongodb+srv://carlbrgs:xKcbcrj0TwiW4asW@tptwt.dj2ot.mongodb.net/") 
+db = client['nom_de_la_base']
 
 # Zones
 raw_collection = db.raw_zone
