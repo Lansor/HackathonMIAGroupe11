@@ -23,8 +23,7 @@ function Login({ onGoRegister, onGoForgetPassword }: LoginProps) {
     setSuccessMessage("");
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
-      const response = await fetch(`${baseUrl}/user/login`, {
+      const response = await fetch("/api/user/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

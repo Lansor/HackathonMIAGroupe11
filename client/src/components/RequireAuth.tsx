@@ -8,8 +8,7 @@ function RequireAuth() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
-        const res = await fetch(`${baseUrl}/user/me`, {
+        const res = await fetch("/api/user/me", {
           credentials: "include",
         });
         setIsAuth(res.ok);
