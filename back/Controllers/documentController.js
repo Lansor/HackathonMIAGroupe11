@@ -161,7 +161,6 @@ const uploadDocument = async (req, res) => {
         // Création de l'entrée dans RawDocument pour lier le binaire à la logique métier
         const newRawDoc = new RawDocument({
             user_id: req.body.user_id || req.user?._id,
-            document_id: `DOC-${Date.now()}`, // Génération d'un ID unique
             gridfs_id: gridfsId, // L'ID généré par GridFS
             filename: filename,
             mime_type: req.file.mimetype,
@@ -170,9 +169,10 @@ const uploadDocument = async (req, res) => {
 
         await newRawDoc.save();
 
-        console.log("File and Metadata saved:", newRawDoc.document_id);
+        console.log("File and Metadata saved:", newRawDoc._id);
         res.status(201).send({
             message: 'Fichier uploadé et enregistré avec succès',
+            document_id: newRawDoc._id,
             document: newRawDoc
         });
     } catch (error) {
@@ -184,20 +184,20 @@ const uploadDocument = async (req, res) => {
 // Logique pour le téléchargement
 const downloadDocument = async (req, res) => {
     try {
-        const fileId = req.params.fileId;
+        const gridFsId = req.params.gridFsId;
         const gfs = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
             bucketName: 'documents'
         });
 
         // On vérifie si le fichier existe avant de tenter le stream
-        const file = await mongoose.connection.db.collection('documents.files').findOne({ _id: new mongoose.Types.ObjectId(fileId) });
+        const file = await mongoose.connection.db.collection('documents.files').findOne({ _id: new mongoose.Types.ObjectId(gridFsId) });
         
         if (!file) {
             return res.status(404).send({ error: "Fichier non trouvé" });
         }
 
         res.set('Content-Type', file.contentType);
-        const downloadStream = gfs.openDownloadStream(new mongoose.Types.ObjectId(fileId));
+        const downloadStream = gfs.openDownloadStream(new mongoose.Types.ObjectId(gridFsId));
         
         console.log("Streaming file:", file.filename);
         downloadStream.pipe(res);
@@ -210,7 +210,7 @@ const downloadDocument = async (req, res) => {
 // Logique pour récupérer les métadonnées d'un document
 const getDocumentInfo = async (req, res) => {
     try {
-        const doc = await RawDocument.findOne({ document_id: req.params.docId });
+        const doc = await RawDocument.findById(req.params.docId);
         if (!doc) {
             return res.status(404).send({ error: "Document introuvable" });
         }
@@ -220,11 +220,46 @@ const getDocumentInfo = async (req, res) => {
     }
 };
 
+// Logique pour supprimer un document
+const deleteDocument = async (req, res) => {
+    try {
+        const { docId } = req.params;
 
+        // Chercher le document dans RawDocument par son _id
+        const rawDoc = await RawDocument.findById(docId);
+        if (!rawDoc) {
+            return res.status(404).send({ error: "Document introuvable" });
+        }
+
+        const gridfsId = rawDoc.gridfs_id;
+
+        // Créer une instance GridFSBucket pour supprimer le fichier
+        const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+            bucketName: 'documents'
+        });
+
+        // Supprimer le fichier de GridFS (documents.files et documents.chunks)
+        await bucket.delete(new mongoose.Types.ObjectId(gridfsId));
+        console.log("GridFS file deleted:", gridfsId);
+
+        // Supprimer l'entrée de RawDocument
+        await RawDocument.findByIdAndDelete(docId);
+        console.log("RawDocument deleted:", docId);
+
+        res.status(200).send({
+            message: 'Document supprimé avec succès',
+            document_id: docId
+        });
+    } catch (error) {
+        console.log("Error deleting document:", error.message);
+        res.status(400).send({ error: error.message });
+    }
+};
 
 module.exports = { 
     uploadDocument, 
     downloadDocument, 
     getDocumentInfo,
-    generateDocument
+    generateDocument,
+    deleteDocument
 };
