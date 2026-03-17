@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const RawDocument = require("../Models/RawdocumentModel");
 
 // Logique pour générer un document PDF
 const generateDocument = async (req, res) => {
