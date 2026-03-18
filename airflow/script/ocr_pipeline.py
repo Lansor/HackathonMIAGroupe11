@@ -29,27 +29,54 @@ import time
 from pdf2image import convert_from_path
 from pymongo import MongoClient
 from datetime import datetime
+from bson import ObjectId
+import easyocr
+
 tesseract_path = os.getenv("TESSERACT_CMD", "tesseract")  # par défaut 'tesseract' dans PATH
 pytesseract.pytesseract.tesseract_cmd = tesseract_path
 from pymongo import MongoClient
 
+# EasyOCR reader (charge une fois, réutilisable)
+try:
+    easyocr_reader = easyocr.Reader(['fr', 'en'], gpu=False)
+    print("EasyOCR Reader chargé")
+except Exception as e:
+    print(f"EasyOCR non disponible: {e}")
+    easyocr_reader = None
+
 # =========================
-#  IMAGE PREPROCESSING
+#  IMAGE PREPROCESSING (AMÉLIORÉ)
 # =========================
 def preprocess_image(image):
     """
     Améliore la qualité de l'image pour OCR
-    Étapes:
+    Étapes améliorées :
     - grayscale
     - binarisation (Otsu)
     - réduction du bruit
+    - dilation + erosion pour améliorer le contraste
+    - upscaling pour petits textes
     """
     # Conversion en niveaux de gris
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # Binarisation avec seuil automatique Otsu (meilleure adaptation au contraste)
+    
+    # Binarisation avec seuil automatique Otsu
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    # Réduction du bruit
-    denoised = cv2.medianBlur(thresh, 3)
+    
+    # Réduction du bruit bilaterale (préserve les edges)
+    denoised = cv2.bilateralFilter(thresh, 9, 75, 75)
+    
+    # Morphologie: dilate + erode pour améliorer connexité
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+    denoised = cv2.dilate(denoised, kernel, iterations=1)
+    denoised = cv2.erode(denoised, kernel, iterations=1)
+    
+    # Upscaling si image trop petite
+    h, w = denoised.shape
+    if w < 400 or h < 300:
+        scale = max(400 / w, 300 / h)
+        denoised = cv2.resize(denoised, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    
     return denoised
 
 # =========================
@@ -73,16 +100,15 @@ def correct_rotation(image):
     return image
 
 # =========================
-#  OCR + CONFIDENCE
+#  OCR TESSERACT + CONFIDENCE
 # =========================
 def run_ocr(image):
     """
-    Lance l'OCR et calcule un score de confiance moyen
+    Lance Tesseract OCR et calcule un score de confiance moyen
     - oem 3  : moteur LSTM (le plus précis)
     - psm 6  : bloc de texte uniforme, meilleure gestion des colonnes
     - l fra  : langue française
     """
- 
     custom_config = r'--oem 3 --psm 6 -l fra'
     data = pytesseract.image_to_data(image, config=custom_config, output_type=pytesseract.Output.DICT)
     # Reconstruction du texte
@@ -95,6 +121,71 @@ def run_ocr(image):
     ]
     avg_conf = sum(confidences) / len(confidences) if confidences else 0
     return text, avg_conf / 100  # normalisé entre 0 et 1
+
+# =========================
+#  OCR EASYOCR (MEILLEUR POUR DOCUMENTS)
+# =========================
+def run_ocr_easyocr(image):
+    """
+    Lance EasyOCR pour extraction haute précision
+    - Meilleur pour textes en français
+    - Meilleur pour documents structurés (factures, KBIS, etc)
+    """
+    if easyocr_reader is None:
+        return "", 0.0
+    
+    try:
+        results = easyocr_reader.readtext(image, detail=1)
+        
+        if not results:
+            return "", 0.0
+        
+        # Extraction texte + confiance
+        texts = []
+        confidences = []
+        for detection in results:
+            text = detection[1]
+            conf = detection[2]
+            if text.strip():
+                texts.append(text)
+                confidences.append(conf)
+        
+        full_text = " ".join(texts)
+        avg_conf = sum(confidences) / len(confidences) if confidences else 0
+        
+        return full_text, avg_conf
+    except Exception as e:
+        print(f"  ⚠️ EasyOCR erreur: {e}")
+        return "", 0.0
+
+# =========================
+#  OCR HYBRIDE (TESSERACT + EASYOCR)
+# =========================
+def run_ocr_hybrid(image):
+    """
+    Combine Tesseract et EasyOCR pour meilleur résultat
+    - Tesseract: rapide, bon pour texte uniforme
+    - EasyOCR: plus lent, meilleur pour documents complexes
+    
+    Stratégie:
+    1. Lance Tesseract (rapide)
+    2. Si confiance faible (<0.7), lance aussi EasyOCR
+    3. Fusionne les résultats ou prend le meilleur
+    """
+    text_tess, conf_tess = run_ocr(image)
+    
+    # Si Tesseract a une bonne confiance, retour directif
+    if conf_tess > 0.75:
+        return text_tess, conf_tess, "tesseract"
+    
+    # Sinon essayer EasyOCR
+    text_easy, conf_easy = run_ocr_easyocr(image)
+    
+    # Choisir le meilleur résultat
+    if conf_easy > conf_tess:
+        return text_easy, conf_easy, "easyocr"
+    else:
+        return text_tess, conf_tess, "tesseract"
 # =========================
 #  PDF → IMAGES
 # =========================
@@ -104,6 +195,33 @@ def pdf_to_images(pdf_path):
     - dpi=300 : résolution plus élevée pour meilleure lisibilité OCR
     """
     return convert_from_path(pdf_path, dpi=300)
+
+# =========================
+#  DÉTECTION TYPE DOCUMENT
+# =========================
+def detect_document_type(raw_text):
+    """
+    Détecte le type de document basé sur le contenu OCR
+    
+    Mots-clés:
+    - facture: "facture"
+    - kbis: "REGISTRE DU COMMERCE ET DES SOCIÉTÉS"
+    - rib: "Relevé d'Identité Bancaire"
+    - ursaaf: "URSAAF"
+    """
+    text_lower = raw_text.lower()
+    
+    if "registre du commerce et des sociétés" in text_lower:
+        return "kbis"
+    elif "relevé d'identité bancaire" in text_lower:
+        return "rib"
+    elif "ursaaf" in text_lower:
+        return "ursaaf"
+    elif "facture" in text_lower:
+        return "facture"
+    else:
+        return "unknown"
+
 # Connexion MongoDB
 client = MongoClient("mongodb+srv://carlbrgs:xKcbcrj0TwiW4asW@tptwt.dj2ot.mongodb.net/")
 db = client["buildup"]
@@ -142,6 +260,7 @@ def process_document(file_path, document_id, user_id, db):
         raise ValueError(f"Aucune image trouvée dans: {file_path}")
 
     # Traitement page par page
+    ocr_engines_used = []
     for i, img in enumerate(images):
         if img is None:
             print(f"[WARN] Page {i+1} est None, suppression")
@@ -149,20 +268,28 @@ def process_document(file_path, document_id, user_id, db):
         img = np.array(img)
         img = correct_rotation(img)
         img = preprocess_image(img)
-        text, conf = run_ocr(img)
+        
+        # OCR HYBRIDE (Tesseract + EasyOCR)
+        text, conf, engine = run_ocr_hybrid(img)
+        ocr_engines_used.append(engine)
+        
         pages_data.append({
             "page_number": i + 1,
             "text": text,
-            "confidence": conf
+            "confidence": conf,
+            "ocr_engine": engine
         })
         full_text += text + "\n"
+    
     #  Métriques
     avg_conf = sum(p["confidence"] for p in pages_data) / len(pages_data)
+    engines_summary = f"{ocr_engines_used[0] if ocr_engines_used else 'unknown'} + fallback"
+    
     # Document adapté au modèle cleanOCRModel.js
     document = {
         "user_id": user_id,
-        "raw_document_id": document_id,
-        "ocr_engine": "tesseract",
+        "raw_document_id": ObjectId(document_id),  # ← Convertit STRING en ObjectId
+        "ocr_engine": engines_summary,  # Moteurs utilisés
         "raw_text": full_text,
         "conf_score": avg_conf,
         "pages": pages_data,
