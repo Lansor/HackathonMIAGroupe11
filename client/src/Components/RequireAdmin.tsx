@@ -1,24 +1,34 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 
-function RequireAuth() {
+function RequireAdmin() {
   const [loading, setLoading] = useState(true);
-  const [isAuth, setIsAuth] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAdmin = async () => {
       try {
         const res = await fetch("/api/user/me", {
           credentials: "include",
         });
-        setIsAuth(res.ok);
+
+        if (!res.ok) {
+          setIsAdmin(false);
+          return;
+        }
+
+        const data = (await res.json()) as {
+          user?: { role?: "user" | "admin" };
+        };
+        setIsAdmin(data?.user?.role === "admin");
       } catch {
-        setIsAuth(false);
+        setIsAdmin(false);
       } finally {
         setLoading(false);
       }
     };
-    checkAuth();
+
+    void checkAdmin();
   }, []);
 
   if (loading) {
@@ -29,11 +39,11 @@ function RequireAuth() {
     );
   }
 
-  if (!isAuth) {
-    return <Navigate to="/auth" replace />;
+  if (!isAdmin) {
+    return <Navigate to="/upload" replace />;
   }
 
   return <Outlet />;
 }
 
-export default RequireAuth;
+export default RequireAdmin;
