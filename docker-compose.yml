@@ -36,9 +36,6 @@ services:
 
   # Airflow
 
-volumes:
-  mongodb_data:
-
 networks:
   hackathon-network:
     driver: bridge
