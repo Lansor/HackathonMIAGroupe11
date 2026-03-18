@@ -55,9 +55,9 @@ def _load_ocr_pipeline_modules() -> dict[str, Any] | None:
                 "process_document": module.process_document,
             }
         except Exception as exc:
-            print(f"❌ [OCR pipeline] Erreur lors du chargement depuis {module_path}: {exc}")
+            print(f" [OCR pipeline] Erreur lors du chargement depuis {module_path}: {exc}")
 
-    print("❌ [OCR pipeline] Impossible de charger le module OCR depuis aucun chemin candidat")
+    print(" [OCR pipeline] Impossible de charger le module OCR depuis aucun chemin candidat")
     return None
 
 
