@@ -26,6 +26,7 @@ et stocker dans MongoDB (clean_ocr).
 """
 
 import cv2
+import os
 import pytesseract
 import numpy as np
 import time
@@ -33,8 +34,8 @@ from pdf2image import convert_from_path
 from pymongo import MongoClient
 from datetime import datetime
 
-# 🔧 Spécifique macOS (Apple Silicon)
-pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
+tesseract_path = os.getenv("TESSERACT_CMD", "tesseract")  # par défaut 'tesseract' dans PATH
+pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
 from pymongo import MongoClient
 
@@ -49,15 +50,15 @@ def preprocess_image(image):
     
     Étapes:
     - grayscale
-    - binarisation
+    - binarisation (Otsu)
     - réduction du bruit
     """
 
     # Conversion en niveaux de gris
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Binarisation (noir/blanc)
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+    # Binarisation avec seuil automatique Otsu (meilleure adaptation au contraste)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     # Réduction du bruit
     denoised = cv2.medianBlur(thresh, 3)
@@ -96,9 +97,13 @@ def correct_rotation(image):
 def run_ocr(image):
     """
     Lance l'OCR et calcule un score de confiance moyen
+    - oem 3  : moteur LSTM (le plus précis)
+    - psm 6  : bloc de texte uniforme, meilleure gestion des colonnes
+    - l fra  : langue française
     """
 
-    data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+    custom_config = r'--oem 3 --psm 6 -l fra'
+    data = pytesseract.image_to_data(image, config=custom_config, output_type=pytesseract.Output.DICT)
 
     # Reconstruction du texte
     words = [w for w in data['text'] if w.strip() != ""]
@@ -120,8 +125,9 @@ def run_ocr(image):
 def pdf_to_images(pdf_path):
     """
     Convertit un PDF en liste d'images
+    - dpi=300 : résolution plus élevée pour meilleure lisibilité OCR
     """
-    return convert_from_path(pdf_path)
+    return convert_from_path(pdf_path, dpi=300)
 
 # Connexion MongoDB
 client = MongoClient("mongodb://localhost:27017/")
@@ -145,7 +151,7 @@ def process_document(file_path, document_id, db):
     pages_data = []
     full_text = ""
 
-    # 🔀 Gestion PDF vs image
+    # Gestion PDF vs image
     if file_path.endswith(".pdf"):
         images = pdf_to_images(file_path)
         source_type = "pdf"
@@ -153,7 +159,7 @@ def process_document(file_path, document_id, db):
         images = [cv2.imread(file_path)]
         source_type = "image"
 
-    # 🔄 Traitement page par page
+    # Traitement page par page
     for i, img in enumerate(images):
 
         # Conversion PIL → OpenCV si PDF
@@ -197,10 +203,11 @@ def process_document(file_path, document_id, db):
 
         "processing": {
             "engine": "tesseract",
-            "preprocessing": ["grayscale", "threshold", "denoise", "rotation"],
+            "preprocessing": ["grayscale", "otsu_threshold", "denoise", "rotation"],
             "created_at": datetime.utcnow()
         }
     }
+
 
     #  Insertion MongoDB
     db.clean_ocr.insert_one(document)

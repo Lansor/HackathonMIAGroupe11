@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import re
-import shutil
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -11,14 +11,52 @@ from typing import Any
 
 import gridfs
 import pymongo
+from bson import ObjectId
 from airflow.decorators import dag, task
+from pymongo.errors import ConfigurationError
 
 BASE_DATA_PATH = Path("/opt/airflow/data")
-INCOMING_PATH = BASE_DATA_PATH / "incoming"
 RAW_PATH = BASE_DATA_PATH / "raw"
 CLEAN_PATH = BASE_DATA_PATH / "clean"
 CURATED_PATH = BASE_DATA_PATH / "curated"
 MOISE_PIPELINE_PATH = Path("/opt/airflow/hackaipipelinegrp11")
+
+
+def _load_ocr_pipeline_modules() -> dict[str, Any] | None:
+    candidates = [
+        Path("/opt/airflow/pipeline_ocr/orc_pipeline.py"),
+        Path(__file__).resolve().parents[2] / "pipeline_ocr" / "orc_pipeline.py",
+    ]
+
+    for module_path in candidates:
+        if not module_path.exists():
+            continue
+
+        try:
+            import cv2
+            import numpy as np
+
+            spec = importlib.util.spec_from_file_location("project_orc_pipeline", str(module_path))
+            if spec is None or spec.loader is None:
+                continue
+
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            return {
+                "cv2": cv2,
+                "np": np,
+                "pdf_to_images": module.pdf_to_images,
+                "correct_rotation": module.correct_rotation,
+                "preprocess_image": module.preprocess_image,
+                "run_ocr_engine": module.run_ocr,
+                "process_document": module.process_document,
+            }
+        except Exception as exc:
+            print(f"[OCR pipeline] import impossible depuis {module_path}: {exc}")
+
+    print("[OCR pipeline] module pipeline_ocr/orc_pipeline.py non disponible")
+    return None
 
 
 def _detect_doc_type(filename: str) -> str:
@@ -37,7 +75,6 @@ def _detect_doc_type(filename: str) -> str:
 
 
 def _ensure_paths() -> None:
-    INCOMING_PATH.mkdir(parents=True, exist_ok=True)
     RAW_PATH.mkdir(parents=True, exist_ok=True)
     CLEAN_PATH.mkdir(parents=True, exist_ok=True)
     CURATED_PATH.mkdir(parents=True, exist_ok=True)
@@ -107,10 +144,18 @@ def _get_mongo_client() -> pymongo.MongoClient:
 
 
 def _get_db(client: pymongo.MongoClient) -> pymongo.database.Database:
-    return client.get_database()
+    db_name = os.getenv("MONGODB_DB")
+    if db_name:
+        return client[db_name]
+
+    try:
+        return client.get_database()
+    except ConfigurationError:
+        return client["buildup"]
 
 
 OCR_FUNCS, CLASSIFY_DOCUMENT, EXTRACT_INFO = _load_moise_modules()
+OCR_PIPELINE = _load_ocr_pipeline_modules()
 
 
 @dag(
@@ -132,23 +177,45 @@ def document_pipeline_mvp() -> None:
         _ensure_paths()
         documents: list[dict[str, Any]] = []
 
-        for file_path in sorted(INCOMING_PATH.glob("*")):
-            if file_path.is_file():
-                documents.append(
-                    {
-                        "document_id": f"doc_{int(datetime.utcnow().timestamp())}_{file_path.stem}",
-                        "filename": file_path.name,
-                        "source_path": str(file_path),
-                        "detected_type": _detect_doc_type(file_path.name),
-                        "status": "DETECTED",
-                        "detected_at": datetime.utcnow().isoformat(),
-                    }
-                )
+        client = _get_mongo_client()
+        db = _get_db(client)
+        raw_col = db["rawdocuments"]
 
-        if not documents:
-            print("Aucun nouveau document dans /incoming")
-        else:
-            print(f"{len(documents)} document(s) détecté(s)")
+        pending_raw_docs = list(
+            raw_col.find(
+                {
+                    "status": "PENDING",
+                    "gridfs_id": {"$exists": True},
+                    "pipeline_status": {"$nin": ["DETECTED", "INGESTED", "OCR_DONE", "EXTRACTED", "CURATED"]},
+                }
+            ).sort("createdAt", pymongo.ASCENDING)
+        )
+
+        now_iso = datetime.utcnow().isoformat()
+        for raw_doc in pending_raw_docs:
+            filename = str(raw_doc.get("filename", "uploaded_document"))
+            document_id = str(raw_doc.get("document_id") or raw_doc.get("_id"))
+            documents.append(
+                {
+                    "document_id": document_id,
+                    "raw_doc_id": str(raw_doc.get("_id")),
+                    "user_id": str(raw_doc.get("user_id")) if raw_doc.get("user_id") else None,
+                    "filename": filename,
+                    "gridfs_id": str(raw_doc.get("gridfs_id")),
+                    "detected_type": _detect_doc_type(filename),
+                    "status": "DETECTED",
+                    "detected_at": now_iso,
+                }
+            )
+
+        if documents:
+            print(f"{len(documents)} document(s) récupéré(s) depuis MongoDB")
+            client.close()
+            return documents
+
+        client.close()
+
+        print("Aucun nouveau document disponible dans MongoDB (rawdocuments)")
 
         return documents
 
@@ -157,26 +224,23 @@ def document_pipeline_mvp() -> None:
         ingested: list[dict[str, Any]] = []
         client = _get_mongo_client()
         db = _get_db(client)
-        fs = gridfs.GridFS(db)
+        fs_bucket = gridfs.GridFSBucket(db, bucket_name="documents")
         col = db["documents"]
+        raw_col = db["rawdocuments"]
 
         for doc in documents:
-            src = Path(doc["source_path"])
-            dst = RAW_PATH / src.name
+            filename = str(doc.get("filename", "uploaded_document"))
+            dst = RAW_PATH / filename
 
-            if not src.exists():
+            gridfs_id = doc.get("gridfs_id")
+
+            if not gridfs_id:
+                print(f"[WARN] document '{doc['document_id']}' ignoré: gridfs_id manquant")
                 continue
 
-            shutil.copyfile(src, dst)
-
-            # Stockage binaire dans GridFS
-            with open(dst, "rb") as f:
-                gridfs_id = fs.put(
-                    f,
-                    filename=doc["filename"],
-                    document_id=doc["document_id"],
-                    doc_type=doc["detected_type"],
-                )
+            with open(dst, "wb") as local_file:
+                download_stream = fs_bucket.open_download_stream(ObjectId(gridfs_id))
+                local_file.write(download_stream.read())
 
             updated = {
                 **doc,
@@ -192,6 +256,13 @@ def document_pipeline_mvp() -> None:
                 {"$set": updated},
                 upsert=True,
             )
+
+            if updated.get("raw_doc_id"):
+                raw_col.update_one(
+                    {"_id": ObjectId(updated["raw_doc_id"])},
+                    {"$set": {"pipeline_status": "INGESTED", "ingested_at": updated["ingested_at"]}},
+                )
+
             print(f"[Mongo] document '{updated['document_id']}' upserted (INGESTED)")
             ingested.append(updated)
 
@@ -201,6 +272,10 @@ def document_pipeline_mvp() -> None:
     @task
     def run_ocr(ingested_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         clean_docs: list[dict[str, Any]] = []
+        image_extensions = {".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"}
+        client = _get_mongo_client()
+        db = _get_db(client)
+        clean_ocr_col = db["clean_ocr"]
 
         for doc in ingested_docs:
             source_file = Path(doc["raw_path"])
@@ -208,27 +283,58 @@ def document_pipeline_mvp() -> None:
 
             detected_type = doc["detected_type"]
             text = ""
-            ocr_confidence = 0.91
+            ocr_confidence = 0.0
 
             try:
                 suffix = source_file.suffix.lower()
 
                 if suffix == ".txt":
                     text = source_file.read_text(encoding="utf-8")
-                elif OCR_FUNCS and suffix == ".pdf":
-                    text = OCR_FUNCS[0](str(source_file))
-                elif OCR_FUNCS and suffix in {".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"}:
-                    text = OCR_FUNCS[1](str(source_file))
+                elif suffix == ".pdf":
+                    if OCR_PIPELINE:
+                        OCR_PIPELINE["process_document"](
+                            str(source_file),
+                            doc["document_id"],
+                            doc.get("user_id"),
+                            db,
+                        )
+                        clean_ocr_doc = clean_ocr_col.find_one(
+                            {"raw_document_id": doc["document_id"]},
+                            sort=[("createdAt", pymongo.DESCENDING)],
+                        )
+                        if not clean_ocr_doc:
+                            raise RuntimeError("Résultat clean_ocr introuvable après process_document")
+                        text = str(clean_ocr_doc.get("raw_text", ""))
+                        ocr_confidence = float(clean_ocr_doc.get("conf_score", 0.0))
+                    elif OCR_FUNCS:
+                        text = OCR_FUNCS[0](str(source_file))
+                    else:
+                        raise RuntimeError("Aucun moteur OCR disponible pour les PDF")
+                elif suffix in image_extensions:
+                    if OCR_PIPELINE:
+                        OCR_PIPELINE["process_document"](
+                            str(source_file),
+                            doc["document_id"],
+                            doc.get("user_id"),
+                            db,
+                        )
+                        clean_ocr_doc = clean_ocr_col.find_one(
+                            {"raw_document_id": doc["document_id"]},
+                            sort=[("createdAt", pymongo.DESCENDING)],
+                        )
+                        if not clean_ocr_doc:
+                            raise RuntimeError("Résultat clean_ocr introuvable après process_document")
+                        text = str(clean_ocr_doc.get("raw_text", ""))
+                        ocr_confidence = float(clean_ocr_doc.get("conf_score", 0.0))
+                    elif OCR_FUNCS:
+                        text = OCR_FUNCS[1](str(source_file))
+                    else:
+                        raise RuntimeError("Aucun moteur OCR disponible pour les images")
                 else:
-                    text = (
-                        f"Document: {source_file.name}\n"
-                        f"Type: {detected_type}\n"
-                        "Montant TTC: 1250.90 EUR\n"
-                        "Date: 2026-03-16\n"
-                        "SIREN: 552100554\n"
-                        "IBAN: FR7630006000011234567890189\n"
-                    )
-                    ocr_confidence = 0.6
+                    raise RuntimeError(f"Type de fichier non supporté pour OCR: {suffix}")
+
+                if not text.strip():
+                    raise RuntimeError("OCR vide: aucun texte extrait")
 
                 if CLASSIFY_DOCUMENT:
                     classified_output = CLASSIFY_DOCUMENT(text)
@@ -238,16 +344,7 @@ def document_pipeline_mvp() -> None:
                     if isinstance(classified_output, dict):
                         ocr_confidence = max(ocr_confidence, float(classified_output.get("confidence", 0.0)))
             except Exception as exc:
-                print(f"[OCR] erreur pour {source_file.name}: {exc} | fallback mock")
-                text = (
-                    f"Document: {source_file.name}\n"
-                    f"Type: {detected_type}\n"
-                    "Montant TTC: 1250.90 EUR\n"
-                    "Date: 2026-03-16\n"
-                    "SIREN: 552100554\n"
-                    "IBAN: FR7630006000011234567890189\n"
-                )
-                ocr_confidence = 0.6
+                raise RuntimeError(f"[OCR] échec pour {source_file.name}: {exc}") from exc
 
             text_output_file.write_text(text, encoding="utf-8")
 
@@ -262,6 +359,15 @@ def document_pipeline_mvp() -> None:
                 }
             )
 
+        # Mise à jour pipeline_status dans rawdocuments après OCR réussi
+        if clean_docs:
+            raw_col = db["rawdocuments"]
+            raw_col.update_many(
+                {"_id": {"$in": [ObjectId(doc["raw_doc_id"]) for doc in clean_docs]}},
+                {"$set": {"pipeline_status": "OCR_DONE", "ocr_completed_at": datetime.utcnow().isoformat()}},
+            )
+
+        client.close()
         return clean_docs
 
     @task
@@ -650,10 +756,11 @@ def document_pipeline_mvp() -> None:
     detected = detect_new_documents()
     ingested = ingest_to_raw(detected)
     cleaned = run_ocr(ingested)
-    extracted = extract_entities(cleaned)
-    validated = validate_business_rules(extracted)
-    curated = write_curated(validated)
-    create_alerts(curated)
+    # Pause temporaire après OCR
+    # extracted = extract_entities(cleaned)
+    # validated = validate_business_rules(extracted)
+    # curated = write_curated(validated)
+    # create_alerts(curated)
 
 
 document_pipeline_mvp()
