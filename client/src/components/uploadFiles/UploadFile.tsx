@@ -13,6 +13,7 @@ const createUploadedItems = (files: globalThis.File[]): UploadedItem[] => {
     name: file.name,
     status: "pending_api",
     rawFile: file,
+    isSubmitted: false,
   }));
 };
 
@@ -79,9 +80,9 @@ function UploadFile() {
         credentials: "include",
       });
 
-      return response.ok ? "success" : "error";
+      return response.ok;
     } catch (_error) {
-      return "error";
+      return false;
     }
   };
 
@@ -90,11 +91,9 @@ function UploadFile() {
       return;
     }
 
-    const pendingItems = uploadedFiles.filter(
-      (item) => item.status === "pending_api",
-    );
+    const itemsToProcess = uploadedFiles.filter((item) => !item.isSubmitted);
 
-    if (pendingItems.length === 0) {
+    if (itemsToProcess.length === 0) {
       return;
     }
 
@@ -102,14 +101,18 @@ function UploadFile() {
 
     const userId = await getCurrentUserId();
 
-    for (const item of pendingItems) {
-      const status = await uploadOne(item, userId);
+    for (const item of itemsToProcess) {
+      const submittedSuccessfully = await uploadOne(item, userId);
 
-      setUploadedFiles((previous) =>
-        previous.map((current) =>
-          current.id === item.id ? { ...current, status } : current,
-        ),
-      );
+      if (submittedSuccessfully) {
+        setUploadedFiles((previous) =>
+          previous.map((current) =>
+            current.id === item.id
+              ? { ...current, isSubmitted: true }
+              : current,
+          ),
+        );
+      }
     }
 
     setIsProcessing(false);
@@ -131,7 +134,7 @@ function UploadFile() {
             uploadedFiles.length === 0 ||
             isUploading ||
             isProcessing ||
-            !uploadedFiles.some((item) => item.status === "pending_api")
+            !uploadedFiles.some((item) => !item.isSubmitted)
           }
           isProcessing={isProcessing}
         />

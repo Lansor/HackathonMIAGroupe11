@@ -1,6 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrashCan } from "@fortawesome/free-regular-svg-icons";
-import FileStatusBadge from "./FileStatusBadge";
 import ProcessButton from "./ProcessButton";
 import type { UploadedItem } from "../types";
 
@@ -47,16 +46,22 @@ function File({
               <span className="min-w-0 flex-1 truncate text-slate-700">
                 {file.name}
               </span>
-              <FileStatusBadge status={file.status} />
-              <button
-                type="button"
-                className="h-7 w-7 rounded-full border border-slate-300 font-semibold leading-none text-slate-600 hover:bg-slate-100"
-                onClick={() => onDelete(file.id)}
-                aria-label={`Supprimer ${file.name}`}
-                title="Supprimer"
-              >
-                <FontAwesomeIcon icon={faTrashCan} />
-              </button>
+              {file.isSubmitted && (
+                <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+                  Envoyé
+                </span>
+              )}
+              {!file.isSubmitted && (
+                <button
+                  type="button"
+                  className="h-7 w-7 rounded-full border border-slate-300 font-semibold leading-none text-slate-600 hover:bg-slate-100"
+                  onClick={() => onDelete(file.id)}
+                  aria-label={`Supprimer ${file.name}`}
+                  title="Supprimer"
+                >
+                  <FontAwesomeIcon icon={faTrashCan} />
+                </button>
+              )}
             </li>
           ))
         )}
