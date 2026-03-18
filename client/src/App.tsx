@@ -4,6 +4,7 @@ import AuthPage from "./pages/AuthPage";
 import UploadPage from "./pages/UploadPage";
 import NavMenu from "./components/NavMenu";
 import RequireAuth from "./components/RequireAuth";
+import Dashboard from "./pages/Dashboard";
 
 function RootLayout() {
   const location = useLocation();
@@ -26,6 +27,7 @@ function App() {
         {/* Routes protégées */}
         <Route element={<RequireAuth />}>
           <Route path="upload" element={<UploadPage />} />
+          <Route path="dashboard" element={<Dashboard />} />
         </Route>
       </Route>
     </Routes>

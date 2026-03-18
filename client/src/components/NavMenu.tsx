@@ -14,11 +14,13 @@ function NavMenu() {
         setIsOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
+  const handleDashboard = () => {
+    navigate("/dashboard");
+    setIsOpen(false);
+  };
   const handleLogout = async () => {
     try {
       await fetch(`/api/user/logout`, {
@@ -58,9 +60,9 @@ function NavMenu() {
               <button
                 type="button"
                 className="w-full rounded-md px-3 py-2 text-left text-slate-400"
-                disabled
+                onClick={handleDashboard}
               >
-                Menu 2 (bientot)
+                Dashboard
               </button>
               <hr className="my-2 border-slate-200" />
               <button
