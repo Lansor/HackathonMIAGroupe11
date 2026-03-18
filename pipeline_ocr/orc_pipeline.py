@@ -26,6 +26,7 @@ et stocker dans MongoDB (clean_ocr).
 """
 
 import cv2
+import os
 import pytesseract
 import numpy as np
 import time
@@ -33,8 +34,8 @@ from pdf2image import convert_from_path
 from pymongo import MongoClient
 from datetime import datetime
 
-# 🔧 Spécifique macOS (Apple Silicon)
-pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
+tesseract_path = os.getenv("TESSERACT_CMD", "tesseract")  # par défaut 'tesseract' dans PATH
+pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
 from pymongo import MongoClient
 
@@ -124,28 +125,27 @@ def pdf_to_images(pdf_path):
     return convert_from_path(pdf_path)
 
 # Connexion MongoDB
-client = MongoClient("mongodb://localhost:27017/")
-db = client["ocr_database"]
+client = MongoClient("mongodb+srv://carlbrgs:xKcbcrj0TwiW4asW@tptwt.dj2ot.mongodb.net/")
+db = client["buildup"]
 
 # =========================
 #  PIPELINE PRINCIPAL
 # =========================
-def process_document(file_path, document_id, db):
+def process_document(file_path, document_id, user_id, db):
     """
     Pipeline complet OCR
     
     Params:
     - file_path: chemin du fichier
     - document_id: ID du document raw
+    - user_id: ID de l'utilisateur
     - db: connexion MongoDB
     """
-
-    start_time = time.time()
 
     pages_data = []
     full_text = ""
 
-    # 🔀 Gestion PDF vs image
+    # Gestion PDF vs image
     if file_path.endswith(".pdf"):
         images = pdf_to_images(file_path)
         source_type = "pdf"
@@ -153,17 +153,11 @@ def process_document(file_path, document_id, db):
         images = [cv2.imread(file_path)]
         source_type = "image"
 
-    # 🔄 Traitement page par page
+    # Traitement page par page
     for i, img in enumerate(images):
-
-        # Conversion PIL → OpenCV si PDF
         img = np.array(img)
-
-        # Pipeline preprocessing
         img = correct_rotation(img)
         img = preprocess_image(img)
-
-        # OCR
         text, conf = run_ocr(img)
 
         pages_data.append({
@@ -171,38 +165,23 @@ def process_document(file_path, document_id, db):
             "text": text,
             "confidence": conf
         })
-
         full_text += text + "\n"
 
     #  Métriques
-    processing_time = time.time() - start_time
     avg_conf = sum(p["confidence"] for p in pages_data) / len(pages_data)
 
-    # Document final (Clean Zone)
+    # Document adapté au modèle cleanOCRModel.js
     document = {
-        "document_id": document_id,
-        "filename": file_path.split("/")[-1],
-        "source": source_type,
-
-        "ocr": {
-            "language": "fra",
-            "full_text": full_text,
-            "pages": pages_data
-        },
-
-        "metrics": {
-            "avg_confidence": avg_conf,
-            "processing_time_sec": processing_time
-        },
-
-        "processing": {
-            "engine": "tesseract",
-            "preprocessing": ["grayscale", "threshold", "denoise", "rotation"],
-            "created_at": datetime.utcnow()
-        }
+        "user_id": user_id,
+        "raw_document_id": document_id,
+        "ocr_engine": "tesseract",
+        "raw_text": full_text,
+        "conf_score": avg_conf,
+        "pages": pages_data,
+        "createdAt": datetime.now(),
     }
 
     #  Insertion MongoDB
-    db.clean_ocr.insert_one(document)
+    db.cleanocrs.insert_one(document)
 
     print(f"OCR terminé: {file_path}")
