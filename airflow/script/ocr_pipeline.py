@@ -202,23 +202,27 @@ def pdf_to_images(pdf_path):
 def detect_document_type(raw_text):
     """
     Détecte le type de document basé sur le contenu OCR
-    
-    Mots-clés:
-    - facture: "facture"
-    - kbis: "REGISTRE DU COMMERCE ET DES SOCIÉTÉS"
-    - rib: "Relevé d'Identité Bancaire"
-    - ursaaf: "URSAAF"
+    Utilise des mots-clés multiples et variantes pour robustesse
+    Ordre: Spécifique → Général (FACTURE avant URSSAF pour éviter faux positifs sur "paiement")
     """
     text_lower = raw_text.lower()
     
-    if "registre du commerce et des sociétés" in text_lower:
-        return "kbis"
-    elif "relevé d'identité bancaire" in text_lower:
+    # RIB: Chercher IBAN, BIC, ou mots-clés bancaires
+    if any(keyword in text_lower for keyword in ["iban", "bic", "titulaire du compte", "code banque", "numéro de compte"]):
         return "rib"
-    elif "ursaaf" in text_lower:
-        return "ursaaf"
-    elif "facture" in text_lower:
+    
+    # KBIS: Chercher SIREN, SIRET, ou mots-clés RCS
+    elif any(keyword in text_lower for keyword in ["registre du commerce", "siren rcs", "siret rcs", "raison sociale", "extrait d immatriculation"]):
+        return "kbis"
+    
+    # FACTURE: Tester AVANT URSSAF car plus spécifique (TVA, HT, TTC sont uniques à factures)
+    elif any(keyword in text_lower for keyword in ["facture", "invoice", "montant ht", "montant ttc", "total ttc", "tva (20%)"]):
         return "facture"
+    
+    # URSSAF: Chercher URSSAF, cotisations (plus spécifique que "paiement")
+    elif any(keyword in text_lower for keyword in ["urssaf", "cotisations", "période", "déclaration sociale", "total cotisations"]):
+        return "urssaf"
+    
     else:
         return "unknown"
 

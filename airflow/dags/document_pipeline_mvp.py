@@ -92,6 +92,109 @@ def _parse_date_value(date_str: str | None) -> datetime | None:
         return None
 
 
+def _extract_fields_by_type(doc_type: str, content: str) -> dict[str, Any]:
+    """
+    Extrait les champs spécifiques selon le type de document
+    Chaque type a ses propres patterns et structures
+    """
+    extracted = {
+        "amount_ht": None,
+        "amount_ttc": None,
+        "date_emission": None,
+        "date_delivrance": None,
+        "date_expiration": None,
+        "siren": None,
+        "siret": None,
+        "tva": None,
+        "tva_rate": None,
+        "iban": None,
+        "business_name": None,
+        "doc_type": doc_type,
+        "extracted_raw": {},
+    }
+
+    if doc_type == "facture":
+        # FACTURE: Montant HT, TVA, Total TTC, SIRET
+        # Patterns robustes pour variantes OCR et formats
+        siret_match = re.search(r"SIRET\s+(\d{9,14})", content, flags=re.IGNORECASE)
+        # HT: accepte "Montant HT" ou "HT" seul avec nombre après
+        ht_match = re.search(r"(?:Montant\s+)?HT\s*[:\s]*([0-9]+[\.,][0-9]+)", content, flags=re.IGNORECASE)
+        # TVA: accepte "TVA (20%)", "TVA 20%", "TVA (20)", avec espaces flexibles
+        tva_rate_match = re.search(r"TVA\s*\(?\s*(\d{1,2})\s*%?\s*\)?", content, flags=re.IGNORECASE)
+        # TTC: accepte "Total TTC", "TOTAL TTC", "Montant TTC", etc.
+        ttc_match = re.search(r"(?:Total|Montant)\s+TTC\s*[:\s]*([0-9]+[\.,][0-9]+)", content, flags=re.IGNORECASE)
+        # Date: flexible pour plusieurs formats
+        date_match = re.search(r"(?:généré|émis?|date)?\s+le\s+(\d{1,2})/(\d{1,2})/(\d{4})", content, flags=re.IGNORECASE)
+        
+        extracted["siret"] = siret_match.group(1) if siret_match else None
+        extracted["siren"] = siret_match.group(1)[:9] if siret_match and len(siret_match.group(1)) >= 9 else None
+        extracted["amount_ht"] = ht_match.group(1).replace(",", ".") if ht_match else None
+        extracted["amount_ttc"] = ttc_match.group(1).replace(",", ".") if ttc_match else None
+        extracted["tva_rate"] = tva_rate_match.group(1) if tva_rate_match else None
+        if date_match:
+            extracted["date_emission"] = f"{date_match.group(3)}-{date_match.group(2)}-{date_match.group(1)}"
+
+    elif doc_type == "rib":
+        # RIB: IBAN, BIC, Titulaire, Nom/Dénomination
+        # IBAN: CC + 2 digits (chèque) + max 30 caractères alphanumériques
+        iban_match = re.search(r"IBAN\s+([A-Z]{2}\d{2}[A-Z0-9]{1,30})(?:\s|$|BIC)", content, flags=re.IGNORECASE)
+        bic_match = re.search(r"BIC\s+(\w+)", content)
+        # Nom/Dénomination: après "Nom / Dénomination" jusqu'à fin de ligne ou mot-clé suivant
+        name_match = re.search(r"Nom\s+/\s+Dénomination\s+(.+?)(?:\n|Coordonnées)", content, flags=re.IGNORECASE)
+        
+        if iban_match:
+            extracted["iban"] = iban_match.group(1).replace(" ", "")
+        
+        extracted["extracted_raw"]["bic"] = bic_match.group(1) if bic_match else None
+        extracted["business_name"] = name_match.group(1).strip() if name_match else None
+
+    elif doc_type == "urssaf":
+        # URSSAF: SIRET (12-14 chiffres pour établissement), Période, Total cotisations, Date limite paiement
+        # Accepte SIRET 12 chiffres (code établissement) ou 14 chiffres (SIRET complet)
+        siret_match = re.search(r"SIRET\s+(\d{12,14})", content, flags=re.IGNORECASE)
+        total_match = re.search(r"TOTAL\s*:\s*([0-9]+[\.,][0-9]+)", content, flags=re.IGNORECASE)
+        period_match = re.search(r"Période\s+(\d{1,2})/(\d{4})", content, flags=re.IGNORECASE)
+        # Accepte variantes OCR: "avant", "avanl", "avant le", etc.
+        date_paiement_match = re.search(r"(?:Paiement|paiement)?\s*(?:attendu|avanl|avant)?\s*(?:avant|avanl)?\s+le\s+(\d{1,2})/(\d{1,2})/(\d{4})", content, flags=re.IGNORECASE)
+        
+        extracted["siret"] = siret_match.group(1) if siret_match else None
+        extracted["siren"] = extracted["siret"][:9] if extracted["siret"] and len(extracted["siret"]) >= 9 else None
+        extracted["amount_ttc"] = total_match.group(1).replace(",", ".") if total_match else None
+        extracted["extracted_raw"]["period"] = f"{period_match.group(2)}-{period_match.group(1)}" if period_match else None
+        
+        if date_paiement_match:
+            extracted["date_expiration"] = f"{date_paiement_match.group(3)}-{date_paiement_match.group(2)}-{date_paiement_match.group(1)}"
+
+    elif doc_type == "kbis":
+        # KBIS: SIREN, SIRET, Raison sociale, Capital, Date création, Gérant
+        # Accepte variantes OCR: "N°", "N'", "N " pour le séparateur
+        # SIREN: 7-9 chiffres, SIRET: 12-14 chiffres (flexibilité pour variantes)
+        siren_match = re.search(r"N[°'\s]\s*SIREN\s+(\d{7,9})", content, flags=re.IGNORECASE)
+        siret_match = re.search(r"N[°'\s]\s*SIRET\s+(\d{12,14})", content, flags=re.IGNORECASE)
+        capital_match = re.search(r"Capital\s+social\s+([0-9]+[\s0-9]*)", content, flags=re.IGNORECASE)
+        date_creation_match = re.search(r"Date\s+de\s+création\s+(\d{1,2})/(\d{1,2})/(\d{4})", content, flags=re.IGNORECASE)
+        # Raison sociale: après "Raison sociale" jusqu'à fin de ligne ou N°
+        raison_match = re.search(r"Raison\s+sociale\s+(.+?)(?:\n|N[°'\s])", content, flags=re.IGNORECASE)
+        
+        extracted["siren"] = siren_match.group(1) if siren_match else None
+        extracted["siret"] = siret_match.group(1) if siret_match else None
+        extracted["business_name"] = raison_match.group(1).strip() if raison_match else None
+        extracted["extracted_raw"]["capital"] = capital_match.group(1).replace(" ", "") if capital_match else None
+        
+        if date_creation_match:
+            extracted["date_emission"] = f"{date_creation_match.group(3)}-{date_creation_match.group(2)}-{date_creation_match.group(1)}"
+        
+        # KBIS valide 3 mois à partir de la date de création
+        if extracted["date_emission"]:
+            from datetime import timedelta
+            creation_date = _parse_date_value(extracted["date_emission"])
+            if creation_date:
+                expiration = creation_date + timedelta(days=90)
+                extracted["date_expiration"] = expiration.isoformat().split("T")[0]
+
+    return extracted
+
+
 def _ensure_paths() -> None:
     RAW_PATH.mkdir(parents=True, exist_ok=True)
     CLEAN_PATH.mkdir(parents=True, exist_ok=True)
@@ -230,7 +333,7 @@ def document_pipeline_mvp() -> None:
             document_id = doc["raw_doc_id"]
             user_id = doc["user_id"]
             
-            print(f"\n📥 [RUN_OCR CALL] process_document() avec:")
+            print(f"\n[RUN_OCR CALL] process_document() avec:")
             print(f"   file_path: {file_path}")
             print(f"   document_id: {document_id}")
             print(f"   user_id: {user_id}")
@@ -254,7 +357,7 @@ def document_pipeline_mvp() -> None:
                 client.close()
                 raise RuntimeError(f"[ERROR] OCR échoué pour {document_id}: {exc}") from exc
         
-        print(f"\n📤 [RUN_OCR OUTPUT] Retour {len(ingested_docs)} document(s)")
+        print(f"\n [RUN_OCR OUTPUT] Retour {len(ingested_docs)} document(s)")
         print(f"   └─ Exemple premier doc keys: {list(ingested_docs[0].keys()) if ingested_docs else 'N/A'}")
         print(f"   └─ Exemple premier doc:\n{json.dumps(ingested_docs[0], indent=2, ensure_ascii=False, default=str) if ingested_docs else 'N/A'}")
         
@@ -264,7 +367,7 @@ def document_pipeline_mvp() -> None:
     @task
     def extract_entities(clean_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Extrait les entités depuis le raw_text stocké dans cleanocrs"""
-        print(f"\n📋 [EXTRACT INPUT] Reçu {len(clean_docs)} document(s) à traiter")
+        print(f"\n [EXTRACT INPUT] Reçu {len(clean_docs)} document(s) à traiter")
         print(f"   └─ Exemple premier doc keys: {list(clean_docs[0].keys()) if clean_docs else 'N/A'}")
         print(f"   └─ Exemple premier doc (complet):\n{json.dumps(clean_docs[0], indent=2, ensure_ascii=False, default=str) if clean_docs else 'N/A'}")
         if not clean_docs:
@@ -278,13 +381,11 @@ def document_pipeline_mvp() -> None:
         client = _get_mongo_client()
         db = _get_db(client)
         clean_ocr_col = db["cleanocrs"]
-        col_docs = db["documents"]
-        col_extractions = db["extractions"]
 
         for doc in clean_docs:
             # Récupérer le raw_text depuis cleanocrs (créé par run_ocr)
             raw_doc_id_str = doc.get("raw_doc_id", "")
-            print(f"\n   🔍 Cherche en MongoDB cleanocrs avec raw_document_id = ObjectId('{raw_doc_id_str}')")
+            print(f"\n    Cherche en MongoDB cleanocrs avec raw_document_id = ObjectId('{raw_doc_id_str}')")
             
             try:
                 raw_doc_id_obj = ObjectId(raw_doc_id_str)
@@ -312,58 +413,13 @@ def document_pipeline_mvp() -> None:
 
             extracted_raw = {}  # TODO: Implémente EXTRACT_INFO si nécessaire
 
-            amount_list = extracted_raw.get("montant", []) if isinstance(extracted_raw, dict) else []
-            date_list = extracted_raw.get("date", []) if isinstance(extracted_raw, dict) else []
-            siret = extracted_raw.get("siret") if isinstance(extracted_raw, dict) else None
+            # Extraction spécifique au type de document
+            extracted = _extract_fields_by_type(doc_type, content)
 
-            fallback_amount_match = re.search(r"Montant TTC:\s*([0-9]+[\.,][0-9]+)", content)
-            fallback_date_match = re.search(r"Date:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", content)
-            fallback_siren_match = re.search(r"SIREN:\s*([0-9]{9})", content)
-            iban_match = re.search(r"IBAN:\s*([A-Z]{2}[0-9A-Z]{25,32})", content)
-            siret_match = re.search(r"\b([0-9]{14})\b", content)
-            tva_match = re.search(r"\b(FR[0-9]{2}\s?[0-9]{9})\b", content)
-            ht_match = re.search(r"(?:HT|Montant\s*HT|Total\s*HT)\s*[:=]?\s*([0-9]+[\.,][0-9]+)", content, flags=re.IGNORECASE)
-            ttc_match = re.search(r"(?:TTC|Montant\s*TTC|Total\s*TTC)\s*[:=]?\s*([0-9]+[\.,][0-9]+)", content, flags=re.IGNORECASE)
-            tva_rate_match = re.search(r"(?:TVA|Taux\s*TVA)\s*[:=]?\s*([0-9]{1,2}(?:[\.,][0-9]+)?)\s*%", content, flags=re.IGNORECASE)
-            date_delivrance_match = re.search(r"(?:Date\s*de\s*d[ée]livrance|D[ée]livr[ée]\s*le)\s*[:=]?\s*([0-9]{2}[/-][0-9]{2}[/-][0-9]{4}|[0-9]{4}-[0-9]{2}-[0-9]{2})", content, flags=re.IGNORECASE)
-            date_expiration_match = re.search(r"(?:Date\s*d['’]?expiration|Valable\s*jusqu['’]?au?|Fin\s*de\s*validit[ée])\s*[:=]?\s*([0-9]{2}[/-][0-9]{2}[/-][0-9]{4}|[0-9]{4}-[0-9]{2}-[0-9]{2})", content, flags=re.IGNORECASE)
-
-            amount_value = None
-            if amount_list:
-                amount_value = amount_list[0].replace("€", "").strip().replace(" ", "")
-            elif fallback_amount_match:
-                amount_value = fallback_amount_match.group(1)
-
-            date_value = date_list[0] if date_list else (fallback_date_match.group(1) if fallback_date_match else None)
-            siren_value = (siret[:9] if siret else None) or (fallback_siren_match.group(1) if fallback_siren_match else None)
-            siret_value = siret or (siret_match.group(1) if siret_match else None)
-
-            # Print matchs trouvés
-            print(f"   Regex matches:")
-            print(f"      ├─ SIREN: {siren_value}")
-            print(f"      ├─ SIRET: {siret_value}")
-            print(f"      ├─ IBAN: {iban_match.group(1) if iban_match else 'N/A'}")
-            print(f"      ├─ HT: {ht_match.group(1) if ht_match else 'N/A'}")
-            print(f"      ├─ TTC: {ttc_match.group(1) if ttc_match else 'N/A'}")
-            print(f"      ├─ TVA Rate: {tva_rate_match.group(1) if tva_rate_match else 'N/A'}%")
-            print(f"      ├─ Date emission: {date_value}")
-            print(f"      ├─ Date delivrance: {date_delivrance_match.group(1) if date_delivrance_match else 'N/A'}")
-            print(f"      └─ Date expiration: {date_expiration_match.group(1) if date_expiration_match else 'N/A'}")
-
-            extracted = {
-                "amount_ht": ht_match.group(1) if ht_match else None,
-                "amount_ttc": (ttc_match.group(1) if ttc_match else amount_value),
-                "date_emission": date_value,
-                "date_delivrance": date_delivrance_match.group(1) if date_delivrance_match else None,
-                "date_expiration": date_expiration_match.group(1) if date_expiration_match else None,
-                "siren": siren_value,
-                "siret": siret_value,
-                "tva": tva_match.group(1).replace(" ", "") if tva_match else None,
-                "tva_rate": tva_rate_match.group(1).replace(",", ".") if tva_rate_match else None,
-                "iban": iban_match.group(1) if iban_match else None,
-                "doc_type": doc_type,
-                "extracted_raw": extracted_raw,
-            }
+            # Afficher seulement les champs non-None pour ce type
+            non_null = {k: v for k, v in extracted.items() if v is not None and k != "extracted_raw"}
+            print(f"   Champs extraits pour {doc_type}:")
+            print(f"      └─ {json.dumps(non_null, ensure_ascii=False, indent=8)}")
 
             print(f"   Extracted fields created")
             print(f"      └─ Full extracted dict keys: {list(extracted.keys())}")
@@ -373,30 +429,12 @@ def document_pipeline_mvp() -> None:
                 "document_id": doc.get("document_id"),
                 "raw_document_id": doc.get("raw_doc_id"),
                 "extracted_fields": extracted,
-                "extraction_confidence": 0.87,
                 "status": "EXTRACTED",
                 "extracted_at": datetime.utcnow().isoformat(),
             }
 
             # Mise à jour statut dans documents (si existe)
             if updated.get("document_id"):
-                col_docs.update_one(
-                    {"document_id": updated["document_id"]},
-                    {"$set": {"status": "EXTRACTED", "extracted_at": updated["extracted_at"]}},
-                    upsert=True
-                )
-
-                # Upsert dans extractions
-                col_extractions.update_one(
-                    {"document_id": updated["document_id"]},
-                    {"$set": {
-                        "document_id": updated["document_id"],
-                        "fields": extracted,
-                        "confidence": 0.87,
-                        "extracted_at": updated["extracted_at"],
-                    }},
-                    upsert=True,
-                )
                 print(f"[Extraction] '{updated['document_id']}' extraite depuis cleanocrs")
             
             extracted_docs.append(updated)
@@ -411,6 +449,7 @@ def document_pipeline_mvp() -> None:
             print(f"   Extraits avec succès: {len(extracted_docs)} document(s)")
             print(f"   Collecte MongoDB cleanocrs total: {count_cleanocrs} documents")
             raise RuntimeError("[ERREUR CRITIQUE] extract_entities: aucun document extrait avec succès")
+      
         
         print(f"\n[EXTRACT] Résumé: {len(extracted_docs)} document(s) traité(s)")
         if extracted_docs:
@@ -564,7 +603,7 @@ def document_pipeline_mvp() -> None:
                             print(f"[RIB] Ancien RIB archivé pour SIREN {siren}")
 
             # ==================== URSSAF / ATTESTATION ====================
-            elif doc_type == "ursaaf" or doc_type == "attestation":
+            elif doc_type == "urssaf" or doc_type == "attestation":
                 expiration = _parse_date_value(fields.get("date_expiration"))
                 link_siren = siren or (siret[:9] if siret else None)
 
