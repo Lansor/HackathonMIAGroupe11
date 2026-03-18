@@ -10,12 +10,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DB_URL: mongodb+srv://carlbrgs:xKcbcrj0TwiW4asW@tptwt.dj2ot.mongodb.net/
+      DB_URL: mongodb+srv://carlbrgs:xKcbcrj0TwiW4asW@tptwt.dj2ot.mongodb.net/buildup
       SERVER_PORT: 8080
       NODE_ENV: production
       CLIENT_URL: http://localhost:5173
     # depends_on:
-    #   - mongodb
+    #  - mongodb
     networks:
       - hackathon-network
     restart: unless-stopped
