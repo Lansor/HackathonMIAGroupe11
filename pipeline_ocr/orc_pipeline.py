@@ -50,15 +50,15 @@ def preprocess_image(image):
     
     Étapes:
     - grayscale
-    - binarisation
+    - binarisation (Otsu)
     - réduction du bruit
     """
 
     # Conversion en niveaux de gris
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Binarisation (noir/blanc)
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+    # Binarisation avec seuil automatique Otsu (meilleure adaptation au contraste)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     # Réduction du bruit
     denoised = cv2.medianBlur(thresh, 3)
@@ -97,9 +97,13 @@ def correct_rotation(image):
 def run_ocr(image):
     """
     Lance l'OCR et calcule un score de confiance moyen
+    - oem 3  : moteur LSTM (le plus précis)
+    - psm 6  : bloc de texte uniforme, meilleure gestion des colonnes
+    - l fra  : langue française
     """
 
-    data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+    custom_config = r'--oem 3 --psm 6 -l fra'
+    data = pytesseract.image_to_data(image, config=custom_config, output_type=pytesseract.Output.DICT)
 
     # Reconstruction du texte
     words = [w for w in data['text'] if w.strip() != ""]
@@ -121,8 +125,9 @@ def run_ocr(image):
 def pdf_to_images(pdf_path):
     """
     Convertit un PDF en liste d'images
+    - dpi=300 : résolution plus élevée pour meilleure lisibilité OCR
     """
-    return convert_from_path(pdf_path)
+    return convert_from_path(pdf_path, dpi=300)
 
 # Connexion MongoDB
 client = MongoClient("mongodb://localhost:27017/")
@@ -198,7 +203,7 @@ def process_document(file_path, document_id, db):
 
         "processing": {
             "engine": "tesseract",
-            "preprocessing": ["grayscale", "threshold", "denoise", "rotation"],
+            "preprocessing": ["grayscale", "otsu_threshold", "denoise", "rotation"],
             "created_at": datetime.utcnow()
         }
     }
