@@ -1,0 +1,49 @@
+{
+  "document_id": "doc_1773764460_Group_05_RIB_20260317_163552",
+  "filename": "Group_05_RIB_20260317_163552.pdf",
+  "source_path": "/opt/airflow/data/incoming/Group_05_RIB_20260317_163552.pdf",
+  "detected_type": "devis",
+  "status": "NEEDS_REVIEW",
+  "detected_at": "2026-03-17T16:21:00.146072",
+  "raw_path": "/opt/airflow/data/raw/Group_05_RIB_20260317_163552.pdf",
+  "gridfs_id": "69b97f71b817e2e0a51b7cc0",
+  "ingested_at": "2026-03-17T16:21:05.349826",
+  "ocr_text_path": "/opt/airflow/data/clean/Group_05_RIB_20260317_163552.txt",
+  "ocr_confidence": 0.91,
+  "ocr_at": "2026-03-17T16:21:41.784218",
+  "extracted_fields": {
+    "amount_ht": null,
+    "amount_ttc": null,
+    "date_emission": "11/11/2016",
+    "date_delivrance": null,
+    "date_expiration": null,
+    "siren": "087784729",
+    "siret": "08778472981396",
+    "tva": null,
+    "tva_rate": null,
+    "iban": null,
+    "doc_type": "devis",
+    "extracted_raw": {
+      "siret": "08778472981396",
+      "tva": null,
+      "montant": [],
+      "date": [
+        "11/11/2016",
+        "17/03/2026"
+      ]
+    }
+  },
+  "extraction_confidence": 0.87,
+  "extracted_at": "2026-03-17T16:21:47.705849",
+  "validation_alerts": [
+    {
+      "level": "critical",
+      "message": "Devis émis par une entreprise non validée (KBIS manquant)"
+    },
+    {
+      "level": "critical",
+      "message": "Montant HT manquant sur devis"
+    }
+  ],
+  "validated_at": "2026-03-17T16:21:51.299918"
+}

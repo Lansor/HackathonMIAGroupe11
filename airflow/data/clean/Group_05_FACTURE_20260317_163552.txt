@@ -1,0 +1,23 @@
+FACTURE
+
+BuildCorp
+N°FAC-996496
+ÉMETTEUR CLIENT
+BuildCorp MANDEL
+SIRET : 12345678900001 38, rue de Coste
+123 Rue de la Tech 73985 Gosselin
+75001 Paris
+
++33 1 23 45 67 89
+
+Description Quantité P.U. HT mont
+Prestation de conseil 4 58.61 700.59
+Développement logiciel 2 134.56 1990.03
+Montant HT : 1446.36
+TVA (20%) : 289.27
+Total TTC : 1735.63
+
+Conditions de paiement : Payable à 30 jours net
+
+Document généré le 17/03/2026
+

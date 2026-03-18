@@ -1,0 +1,23 @@
+FACTURE
+
+BuildCorp
+N°FAC-915986
+ÉMETTEUR CLIENT
+BuildCorp MESDAMES HARREAU ET MARTY
+SIRET : 12345678900001 45, rue de Alves
+123 Rue de la Tech 71416 Klein-sur-Fabre
+75001 Paris
+
++33 1 23 45 67 89
+
+Description Quantité P.U.HT mont
+Prestation de conseil 3 86.66 185.65
+Développement logiciel 2 138.12 506.74
+Montant HT : 2234.08
+TVA (20%) : 446.82
+Total TTC : 2680.90
+
+Conditions de paiement : Payable à 30 jours net
+
+Document généré le 17/03/2026
+

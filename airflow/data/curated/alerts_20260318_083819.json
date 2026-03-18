@@ -1,0 +1,142 @@
+[
+  {
+    "document_id": "doc_1773822987_Group_01_FACTURE_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:18.908237"
+  },
+  {
+    "document_id": "doc_1773822987_Group_01_KBIS_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.344922"
+  },
+  {
+    "document_id": "doc_1773822987_Group_01_RIB_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:19.365649"
+  },
+  {
+    "document_id": "doc_1773822987_Group_01_URSSAF_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.386912"
+  },
+  {
+    "document_id": "doc_1773822987_Group_02_FACTURE_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:19.403949"
+  },
+  {
+    "document_id": "doc_1773822987_Group_02_KBIS_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.426364"
+  },
+  {
+    "document_id": "doc_1773822987_Group_02_RIB_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:19.467531"
+  },
+  {
+    "document_id": "doc_1773822987_Group_02_URSSAF_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.494454"
+  },
+  {
+    "document_id": "doc_1773822987_Group_03_FACTURE_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:19.518313"
+  },
+  {
+    "document_id": "doc_1773822987_Group_03_KBIS_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.540499"
+  },
+  {
+    "document_id": "doc_1773822987_Group_03_RIB_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:19.562296"
+  },
+  {
+    "document_id": "doc_1773822987_Group_03_URSSAF_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.592039"
+  },
+  {
+    "document_id": "doc_1773822987_Group_04_FACTURE_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:19.612351"
+  },
+  {
+    "document_id": "doc_1773822987_Group_04_KBIS_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.633101"
+  },
+  {
+    "document_id": "doc_1773822987_Group_04_RIB_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:19.652881"
+  },
+  {
+    "document_id": "doc_1773822987_Group_04_URSSAF_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.670536"
+  },
+  {
+    "document_id": "doc_1773822987_Group_05_FACTURE_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:19.692710"
+  },
+  {
+    "document_id": "doc_1773822987_Group_05_KBIS_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.718394"
+  },
+  {
+    "document_id": "doc_1773822987_Group_05_RIB_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "NEEDS_REVIEW",
+    "created_at": "2026-03-18T08:38:19.745429"
+  },
+  {
+    "document_id": "doc_1773822987_Group_05_URSSAF_20260317_163552",
+    "level": "warning",
+    "message": "Revue manuelle requise",
+    "status": "PENDING",
+    "created_at": "2026-03-18T08:38:19.767276"
+  }
+]

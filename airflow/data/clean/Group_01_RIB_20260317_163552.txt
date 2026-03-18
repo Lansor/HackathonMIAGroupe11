@@ -1,0 +1,45 @@
+Relevé d'Identité Bancaire
+
+Titulaire du compte
+
+Nom/Dénomination :
+
+DUMOULIN
+
+Coordonnées bancaires
+
+IBAN : FR6944741456595498713391493
+BIC : RZGIFR8Y
+
+Établissement bancaire
+
+Banque : BPCE
+
+Agence : Agence Sainte Virginie-les-Bains
+Adresse : 78, rue Marty, Daniel-sur-Paul
+
+Détails du compte
+
+Numéro de compte :
+
+13698423974550
+
+Type de compte :
+
+Compte courant
+
+Devise :
+
+EUR
+
+Date d'ouverture :
+
+09/07/2025
+
+Ce RIB
+
+Généré Le 17/03/2026
+
+doit être utilisé uniquement à titre de virement bancaire
+
+

@@ -1,0 +1,47 @@
+Relevé d'Identité Bancaire
+
+Titulaire du compte
+
+Nom/Dénomination :
+
+CARBONNET
+
+Coordonnées bancaires
+
+IBAN :
+
+FR5649615979387155414795249
+
+BIC :
+
+SNXBFR92
+
+Établissement bancaire
+
+Banque : Crédit Agricole
+Agence : Agence Giraud
+Adresse : 76, boulevard Guillaume, Juliendan
+
+Détails du compte
+
+Numéro de compte :
+
+29686071412625
+
+Type de compte :
+
+Compte courant
+
+Devise :
+
+EUR
+
+Date d'ouverture :
+
+16/08/2018
+
+Généré Le 17/03/2026
+
+Ce RIB doit être utilisé uniquement à titre de virement bancaire
+
+

@@ -1,0 +1,48 @@
+{
+  "document_id": "doc_1773822987_Group_03_FACTURE_20260317_163552",
+  "filename": "Group_03_FACTURE_20260317_163552.pdf",
+  "source_path": "/opt/airflow/data/incoming/Group_03_FACTURE_20260317_163552.pdf",
+  "detected_type": "facture",
+  "status": "NEEDS_REVIEW",
+  "detected_at": "2026-03-18T08:36:27.303544",
+  "raw_path": "/opt/airflow/data/raw/Group_03_FACTURE_20260317_163552.pdf",
+  "gridfs_id": "69ba6419c21ad07d8bfc9595",
+  "ingested_at": "2026-03-18T08:36:41.188021",
+  "ocr_text_path": "/opt/airflow/data/clean/Group_03_FACTURE_20260317_163552.txt",
+  "ocr_confidence": 0.91,
+  "ocr_at": "2026-03-18T08:37:20.932338",
+  "extracted_fields": {
+    "amount_ht": "1062.03",
+    "amount_ttc": "1274.44",
+    "date_emission": "17/03/2026",
+    "date_delivrance": null,
+    "date_expiration": null,
+    "siren": "123456789",
+    "siret": "12345678900001",
+    "tva": null,
+    "tva_rate": null,
+    "iban": null,
+    "doc_type": "facture",
+    "extracted_raw": {
+      "siret": "12345678900001",
+      "tva": null,
+      "montant": [],
+      "date": [
+        "17/03/2026"
+      ]
+    }
+  },
+  "extraction_confidence": 0.87,
+  "extracted_at": "2026-03-18T08:37:57.374363",
+  "validation_alerts": [
+    {
+      "level": "warning",
+      "message": "Facture incomplète pour contrôle HT/TVA/TTC"
+    },
+    {
+      "level": "critical",
+      "message": "SIRET/SIREN facture absent de la base fournisseurs validés"
+    }
+  ],
+  "validated_at": "2026-03-18T08:38:01.796915"
+}
