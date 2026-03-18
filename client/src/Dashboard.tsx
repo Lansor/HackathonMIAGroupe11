@@ -138,7 +138,7 @@ function Dashboard() {
     },
   }
   return (
-    <main className="min-h-screen bg-slate-100 p-6 text-slate-900">
+    <main className="min-h-screen bg-slate-100 px-6 pt-6 pb-16 text-slate-900">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

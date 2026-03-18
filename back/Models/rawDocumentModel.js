@@ -6,11 +6,6 @@ const rawDocumentSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  document_id: {
-    type: String,
-    required: true,
-    unique: true,
-  },
   // L'ID de référence vers GridFS (fs.files)
   gridfs_id: {
     type: mongoose.Schema.Types.ObjectId,

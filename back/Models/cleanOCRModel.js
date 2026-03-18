@@ -6,10 +6,10 @@ const cleanOCRSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  document_id: {
-    type: String, // Référence au document_id de RawDocument
+  raw_document_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "RawDocument",
     required: true,
-    unique: true,
   },
   ocr_engine: {
     type: String,
