@@ -26,6 +26,7 @@ et stocker dans MongoDB (clean_ocr).
 """
 
 import cv2
+import os
 import pytesseract
 import numpy as np
 import time
@@ -33,8 +34,8 @@ from pdf2image import convert_from_path
 from pymongo import MongoClient
 from datetime import datetime
 
-# 🔧 Spécifique macOS (Apple Silicon)
-pytesseract.pytesseract.tesseract_cmd = "/opt/homebrew/bin/tesseract"
+tesseract_path = os.getenv("TESSERACT_CMD", "tesseract")  # par défaut 'tesseract' dans PATH
+pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
 from pymongo import MongoClient
 
@@ -145,7 +146,7 @@ def process_document(file_path, document_id, db):
     pages_data = []
     full_text = ""
 
-    # 🔀 Gestion PDF vs image
+    # Gestion PDF vs image
     if file_path.endswith(".pdf"):
         images = pdf_to_images(file_path)
         source_type = "pdf"
@@ -153,7 +154,7 @@ def process_document(file_path, document_id, db):
         images = [cv2.imread(file_path)]
         source_type = "image"
 
-    # 🔄 Traitement page par page
+    # Traitement page par page
     for i, img in enumerate(images):
 
         # Conversion PIL → OpenCV si PDF
@@ -201,6 +202,7 @@ def process_document(file_path, document_id, db):
             "created_at": datetime.utcnow()
         }
     }
+
 
     #  Insertion MongoDB
     db.clean_ocr.insert_one(document)
