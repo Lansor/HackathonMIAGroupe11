@@ -9,7 +9,7 @@ import {
   Tooltip,
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
-import UsersTable from './Components/UsersTable/UsersTable'
+import UsersTable from '../Components/UsersTable/UsersTable'
 
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
