@@ -128,6 +128,11 @@ def _extract_fields_by_type(doc_type: str, content: str) -> dict[str, Any]:
         
         extracted["siret"] = siret_match.group(1) if siret_match else None
         extracted["siren"] = siret_match.group(1)[:9] if siret_match and len(siret_match.group(1)) >= 9 else None
+        # Ajouter "00" au début pour normalisation
+        if extracted["siret"]:
+            extracted["siret"] = "00" + extracted["siret"]
+        if extracted["siren"]:
+            extracted["siren"] = "00" + extracted["siren"]
         extracted["amount_ht"] = ht_match.group(1).replace(",", ".") if ht_match else None
         extracted["amount_ttc"] = ttc_match.group(1).replace(",", ".") if ttc_match else None
         extracted["tva_rate"] = tva_rate_match.group(1) if tva_rate_match else None
@@ -159,6 +164,11 @@ def _extract_fields_by_type(doc_type: str, content: str) -> dict[str, Any]:
         
         extracted["siret"] = siret_match.group(1) if siret_match else None
         extracted["siren"] = extracted["siret"][:9] if extracted["siret"] and len(extracted["siret"]) >= 9 else None
+        # Ajouter "00" au début pour normalisation
+        if extracted["siret"]:
+            extracted["siret"] = "00" + extracted["siret"]
+        if extracted["siren"]:
+            extracted["siren"] = "00" + extracted["siren"]
         extracted["amount_ttc"] = total_match.group(1).replace(",", ".") if total_match else None
         extracted["extracted_raw"]["period"] = f"{period_match.group(2)}-{period_match.group(1)}" if period_match else None
         
@@ -178,6 +188,11 @@ def _extract_fields_by_type(doc_type: str, content: str) -> dict[str, Any]:
         
         extracted["siren"] = siren_match.group(1) if siren_match else None
         extracted["siret"] = siret_match.group(1) if siret_match else None
+        # Ajouter "00" au début pour normalisation
+        if extracted["siren"]:
+            extracted["siren"] = "00" + extracted["siren"]
+        if extracted["siret"]:
+            extracted["siret"] = "00" + extracted["siret"]
         extracted["business_name"] = raison_match.group(1).strip() if raison_match else None
         extracted["extracted_raw"]["capital"] = capital_match.group(1).replace(" ", "") if capital_match else None
         
@@ -470,8 +485,8 @@ def document_pipeline_mvp() -> None:
         db = _get_db(client)
         clean_ocr_col = db["cleanocrs"]
         curated_col = db["curated_data"]
-        suppliers_col = db["supplier_status"]
-        
+        raw_col = db["rawdocuments"]
+      
         # Charger le module OCR une fois
         ocr_pipeline = _load_ocr_pipeline_modules()
         detect_func = ocr_pipeline.get("detect_document_type") if ocr_pipeline else None
@@ -488,8 +503,11 @@ def document_pipeline_mvp() -> None:
             # Détecter le type basée sur le contenu OCR
             doc_type = detect_func(raw_text) if detect_func else "unknown"
             
+            # Extraire les données clés avec business_name
             siren = fields.get("siren")
             siret = fields.get("siret")
+            business_name = fields.get("business_name")
+            
             if not siren and siret:
                 siren = siret[:9]
 
@@ -510,12 +528,13 @@ def document_pipeline_mvp() -> None:
 
                     # Cas 1: SIREN inexistant en base → Création nouvelle entrée
                     if not existing_kbis:
-                        print(f"[KBIS] Nouveau SIREN {siren}: création d'une nouvelle entrée")
+                        print(f"[KBIS] Nouveau SIREN {siren} ({business_name}): création d'une nouvelle entrée")
                         curated_col.insert_one({
                             "document_id": doc.get("document_id"),
                             "doc_type": "kbis",
                             "siren": siren,
                             "siret": siret,
+                            "business_name": business_name,
                             "fields": fields,
                             "status": "VALIDATED",
                             "alerts": [],
@@ -528,7 +547,7 @@ def document_pipeline_mvp() -> None:
                     else:
                         existing_date = _parse_date_value(existing_kbis.get("date_delivrance"))
                         if date_delivrance and existing_date and date_delivrance > existing_date:
-                            print(f"[KBIS] SIREN {siren}: remplacement de l'ancien Kbis")
+                            print(f"[KBIS] SIREN {siren} ({business_name}): remplacement de l'ancien Kbis")
                             curated_col.update_one(
                                 {"_id": existing_kbis["_id"]},
                                 {"$set": {
@@ -543,6 +562,7 @@ def document_pipeline_mvp() -> None:
                                 "doc_type": "kbis",
                                 "siren": siren,
                                 "siret": siret,
+                                "business_name": business_name,
                                 "fields": fields,
                                 "status": "VALIDATED",
                                 "alerts": [],
@@ -563,13 +583,13 @@ def document_pipeline_mvp() -> None:
             # ==================== RIB ====================
             elif doc_type == "rib":
                 iban = fields.get("iban")
-                
+                print (f"[RIB] Traitement du RIB pour SIREN {siren} (\"{business_name}\") - IBAN: {iban}")
                 # Vérification: existe-t-il un KBIS validé?
                 kbis_ok = bool(
                     siren
                     and curated_col.find_one({
                         "doc_type": "kbis",
-                        "siren": siren,
+                        "business_name": "{business_name}",
                         "is_active": True,
                         "status": {"$in": ["VALIDATED", "UPDATED"]},
                     })
@@ -582,13 +602,13 @@ def document_pipeline_mvp() -> None:
                 if not kbis_ok:
                     alerts.append({"level": "warning", "message": "Aucun KBIS validé correspondant au RIB"})
                     status = "PENDING"
-                    print(f"[RIB] Pas de KBIS trouvé pour SIREN {siren}")
+                    print(f"[RIB] Pas de KBIS trouvé pour SIREN {siren} ({business_name})")
                 else:
                     # Archive l'ancien RIB s'il existe
-                    if siren:
+                    if business_name:
                         existing_rib = curated_col.find_one({
                             "doc_type": "rib",
-                            "siren": siren,
+                            "business_name": f" {business_name}",
                             "is_active": True,
                         })
                         if existing_rib:
@@ -600,7 +620,25 @@ def document_pipeline_mvp() -> None:
                                     "archived_reason": "Nouveau RIB reçu"
                                 }},
                             )
-                            print(f"[RIB] Ancien RIB archivé pour SIREN {siren}")
+                            print(f"[RIB] Ancien RIB archivé pour SIREN {siren} ({business_name})")
+                        
+                        # Créer/Mettre à jour le nouveau RIB
+                        curated_col.update_one(
+                            {"doc_type": "rib", "business_name": business_name},
+                            {"$set": {
+                                "document_id": doc.get("document_id"),
+                                "doc_type": "rib",
+                                "siren": siren,
+                                "business_name": business_name,
+                                "iban": iban,
+                                "fields": fields,
+                                "status": status,
+                                "alerts": alerts,
+                                "is_active": True,
+                                "updated_at": now.isoformat(),
+                            }},
+                            upsert=True,
+                        )
 
             # ==================== URSSAF / ATTESTATION ====================
             elif doc_type == "urssaf" or doc_type == "attestation":
@@ -621,25 +659,12 @@ def document_pipeline_mvp() -> None:
                 if not kbis_ok:
                     alerts.append({"level": "warning", "message": "Attestation URSSAF sans KBIS lié"})
                     status = "PENDING"
-                    print(f"[URSSAF] Pas de KBIS trouvé pour SIRET {siret}")
+                    print(f"[URSSAF] Pas de KBIS trouvé pour SIRET {siret} ({business_name})")
 
                 # Vérification de l'expiration
                 if expiration and expiration.date() < now.date():
                     alerts.append({"level": "critical", "message": "Attestation URSSAF expirée: fournisseur bloqué paiement"})
                     status = "BLOQUE_PAIEMENT"
-                    if link_siren:
-                        suppliers_col.update_one(
-                            {"siren": link_siren},
-                            {"$set": {
-                                "siren": link_siren,
-                                "payment_status": "BLOCKED",
-                                "reason": "URSSAF_EXPIRED",
-                                "expired_at": expiration.isoformat(),
-                                "updated_at": now.isoformat(),
-                            }},
-                            upsert=True,
-                        )
-                        print(f"[URSSAF] Fournisseur {link_siren} BLOQUÉ pour paiement")
 
             # ==================== FACTURE ====================
             elif doc_type == "facture":
@@ -672,7 +697,7 @@ def document_pipeline_mvp() -> None:
                 if not kbis_ok:
                     alerts.append({"level": "critical", "message": "SIRET/SIREN facture absent de la base fournisseurs validés"})
                     status = "NEEDS_REVIEW"
-                    print(f"[FACTURE] SIREN {link_siren} non trouvé ou non validé")
+                    print(f"[FACTURE] SIREN {link_siren} ({business_name}) non trouvé ou non validé")
 
             # Vérification finale: SIREN valide (9 chiffres)
             if siren and len(siren) != 9:
@@ -680,7 +705,7 @@ def document_pipeline_mvp() -> None:
                 if status == "VALIDATED":
                     status = "NEEDS_REVIEW"
 
-            # Stockage dans curated_data
+            # Stockage dans curated_data avec business_name et champs complets
             if "document_id" in doc:
                 curated_col.update_one(
                     {"document_id": doc["document_id"]},
@@ -689,6 +714,7 @@ def document_pipeline_mvp() -> None:
                         "doc_type": doc_type,
                         "siren": siren,
                         "siret": siret,
+                        "business_name": business_name,
                         "fields": fields,
                         "status": status,
                         "alerts": alerts,
@@ -696,6 +722,16 @@ def document_pipeline_mvp() -> None:
                         "updated_at": now.isoformat(),
                     }},
                     upsert=True,
+                )
+                
+                # Mettre à jour le statut du rawdocument: FAILED si alertes, CURATED sinon
+                raw_status = "FAILED" if alerts else "CURATED"
+                raw_col.update_one(
+                    {"_id": ObjectId(doc["document_id"])},
+                    {"$set": {
+                        "status": raw_status,
+                        "validated_at": now.isoformat(),
+                    }},
                 )
 
             validated_docs.append({
@@ -709,90 +745,14 @@ def document_pipeline_mvp() -> None:
         client.close()
         return validated_docs
 
-    @task
-    def write_curated(validated_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        outputs: list[dict[str, Any]] = []
-        client = _get_mongo_client()
-        db = _get_db(client)
-        col_docs = db["documents"]
-
-        for doc in validated_docs:
-            # Fichier local curated (gardé pour debug)
-            curated_file = CURATED_PATH / f"{doc['document_id']}.json"
-            curated_file.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")
-
-            # Mise à jour statut final + champs validés dans MongoDB
-            col_docs.update_one(
-                {"document_id": doc["document_id"]},
-                {"$set": {
-                    "status": doc["status"],
-                    "validation_alerts": doc.get("validation_alerts", []),
-                    "validated_at": doc.get("validated_at"),
-                    "curated_path": str(curated_file),
-                    "zone": "curated",
-                }},
-            )
-            print(f"[Mongo] document '{doc['document_id']}' mis à jour → {doc['status']}")
-
-            outputs.append(
-                {
-                    "document_id": doc["document_id"],
-                    "curated_path": str(curated_file),
-                    "status": doc["status"],
-                    "alerts_count": len(doc.get("validation_alerts", [])),
-                }
-            )
-
-        client.close()
-        return outputs
-
-    @task
-    def create_alerts(curated_outputs: list[dict[str, Any]]) -> None:
-        client = _get_mongo_client()
-        db = _get_db(client)
-        col_alerts = db["alerts"]
-        col_runs = db["pipeline_runs"]
-
-        alerts_payload = []
-        for item in curated_outputs:
-            alert = {
-                "document_id": item["document_id"],
-                "level": "warning" if item["alerts_count"] > 0 else "info",
-                "message": "Revue manuelle requise" if item["alerts_count"] > 0 else "Aucune alerte",
-                "status": item["status"],
-                "created_at": datetime.utcnow().isoformat(),
-            }
-            # Upsert alerte pour ce document
-            col_alerts.update_one(
-                {"document_id": item["document_id"]},
-                {"$set": alert},
-                upsert=True,
-            )
-            alerts_payload.append(alert)
-            print(f"[Mongo] alerte '{item['document_id']}' → {alert['level']}")
-
-        # Enregistrement du run pipeline pour audit
-        col_runs.insert_one({
-            "run_at": datetime.utcnow().isoformat(),
-            "documents_processed": len(curated_outputs),
-            "alerts_generated": sum(1 for a in alerts_payload if a["level"] != "info"),
-            "statuses": [item["status"] for item in curated_outputs],
-        })
-        print(f"[Mongo] pipeline_run enregistré — {len(curated_outputs)} document(s) traités")
-
-        # Fichier local gardé pour debug
-        alerts_file = CURATED_PATH / f"alerts_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-        alerts_file.write_text(json.dumps(alerts_payload, indent=2, ensure_ascii=False), encoding="utf-8")
-        client.close()
+    
 
     detected = detect_new_documents()
     ingested = ingest_to_raw(detected)
     cleaned = run_ocr(ingested)
-    # Pause temporaire après OCR
     extracted = extract_entities(cleaned)
-    # validated = validate_business_rules(extracted)
-    # curated = write_curated(validated)
-    # create_alerts(curated)
+    validated = validate_business_rules(extracted)
+ 
 
 
 document_pipeline_mvp()
