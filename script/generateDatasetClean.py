@@ -87,7 +87,7 @@ def generate_coherent_group(company_row, group_id):
         'naf_code': fake.numerify('####Z'),
         'legal_form': random.choice(['SARL', 'SAS', 'EURL', 'SA', 'EI']),
         'capital': f"{random.choice([10000, 20000, 50000, 100000])}",
-        'creation_date': fake.date_between(start_date='-10y').strftime('%d/%m/%Y'),
+        'creation_date': fake.date_between(start_date='-180d', end_date='today').strftime('%d/%m/%Y'),
         'manager_name': fake.name(),
         'address': fake.street_address(),
         'zip_code': fake.postcode(),
