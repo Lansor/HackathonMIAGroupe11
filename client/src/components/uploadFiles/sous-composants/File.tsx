@@ -1,6 +1,7 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrashCan } from "@fortawesome/free-regular-svg-icons";
 import FileStatusBadge from "./FileStatusBadge";
+import ProcessButton from "./ProcessButton";
 import type { UploadedItem } from "../types";
 
 type FileListProps = {
@@ -8,9 +9,20 @@ type FileListProps = {
   isUploading: boolean;
   pendingLabel: string;
   onDelete: (id: string) => void;
+  onProcess: () => void;
+  isProcessDisabled: boolean;
+  isProcessing: boolean;
 };
 
-function File({ files, isUploading, pendingLabel, onDelete }: FileListProps) {
+function File({
+  files,
+  isUploading,
+  pendingLabel,
+  onDelete,
+  onProcess,
+  isProcessDisabled,
+  isProcessing,
+}: FileListProps) {
   return (
     <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm">
       <div className="border-b border-slate-200 px-4 py-3">
@@ -49,6 +61,14 @@ function File({ files, isUploading, pendingLabel, onDelete }: FileListProps) {
           ))
         )}
       </ul>
+
+      <div className="border-t border-slate-200 p-4">
+        <ProcessButton
+          onClick={onProcess}
+          disabled={isProcessDisabled}
+          isLoading={isProcessing}
+        />
+      </div>
     </aside>
   );
 }
