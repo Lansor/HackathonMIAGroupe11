@@ -22,10 +22,9 @@ function Register({ onGoLogin }: RegisterProps) {
     setSuccessMessage("");
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
       const username = `${firstName.trim()} ${name.trim()}`.trim();
 
-      const response = await fetch(`${baseUrl}/user/register`, {
+      const response = await fetch("/api/user/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

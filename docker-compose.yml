@@ -1,4 +1,4 @@
-version: '3.8'
+## version: "3.8"
 
 services:
   # Backend
@@ -10,22 +10,34 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DB_URL: mongodb+srv://carlbrgs:xKcbcrj0TwiW4asW@tptwt.dj2ot.mongodb.net/
+      DB_URL: mongodb+srv://carlbrgs:xKcbcrj0TwiW4asW@tptwt.dj2ot.mongodb.net/buildup
       SERVER_PORT: 8080
       NODE_ENV: production
-    depends_on:
-      - mongodb
+      CLIENT_URL: http://localhost:5173
+    # depends_on:
+    #  - mongodb
     networks:
       - hackathon-network
     restart: unless-stopped
 
   # Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/front/Dockerfile
+    container_name: hackathon-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - hackathon-network
+    restart: unless-stopped
 
   # Airflow
 
-
 volumes:
-  mongodb_data: 
+  mongodb_data:
 
 networks:
   hackathon-network:

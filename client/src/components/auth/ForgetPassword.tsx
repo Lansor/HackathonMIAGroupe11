@@ -23,10 +23,9 @@ function ForgetPassword({ onGoLogin }: ForgetPasswordProps) {
     setSuccessMessage("");
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
       const endpoint = isEmailValidated
-        ? `${baseUrl}/user/reset-password`
-        : `${baseUrl}/user/forgot-password`;
+        ? `/api/user/reset-password`
+        : `/api/user/forgot-password`;
 
       if (isEmailValidated && password !== confirmPassword) {
         throw new Error("Les deux mots de passe doivent etre identiques.");

@@ -4,26 +4,24 @@ import AuthPage from "./pages/AuthPage";
 import UploadPage from "./pages/UploadPage";
 import NavMenu from "./components/NavMenu";
 import RequireAuth from "./components/RequireAuth";
-import Dashboard from "./Dashboard";
 
 function RootLayout() {
   const location = useLocation();
   const showNav = location.pathname !== "/auth";
 
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
->>>>>>> origin/Killian
+  return (
+    <>
+      {showNav && <NavMenu />}
+      <Outlet />
+    </>
   );
 }
 
-<<<<<<< HEAD
 function App() {
   return (
     <Routes>
       <Route path="/" element={<RootLayout />}>
         <Route index element={<Navigate to="/auth" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
         <Route path="auth" element={<AuthPage />} />
         {/* Routes protégées */}
         <Route element={<RequireAuth />}>
@@ -31,6 +29,7 @@ function App() {
         </Route>
       </Route>
     </Routes>
-=======
-export default App
->>>>>>> origin/Killian
+  );
+}
+
+export default App;

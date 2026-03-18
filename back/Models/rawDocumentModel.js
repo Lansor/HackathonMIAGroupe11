@@ -30,6 +30,6 @@ const rawDocumentSchema = new mongoose.Schema({
   },
 });
 
-const RawDocument = mongoose.model("RawDocument", rawDocumentSchema);
+const RawDocument = mongoose.model("rawdocuments", rawDocumentSchema);
 
 module.exports = RawDocument;

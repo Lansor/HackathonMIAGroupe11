@@ -21,8 +21,7 @@ function NavMenu() {
 
   const handleLogout = async () => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
-      await fetch(`${baseUrl}/user/logout`, {
+      await fetch(`/api/user/logout`, {
         method: "POST",
         credentials: "include",
       });
