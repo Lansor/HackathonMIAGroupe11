@@ -15,6 +15,7 @@ x-airflow-common: &airflow-common
     MONGODB_URI: ${MONGODB_URI}
   volumes:
     - ./dags:/opt/airflow/dags
+    - ./script:/opt/airflow/script
     - ../hackaipipelinegrp11:/opt/airflow/hackaipipelinegrp11
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
@@ -59,7 +60,7 @@ services:
     <<: *airflow-common
     command: webserver
     ports:
-      - '8080:8080'
+      - '8081:8080'
     restart: always
 
   airflow-scheduler:

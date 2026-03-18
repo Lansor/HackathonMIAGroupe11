@@ -3,3 +3,5 @@ __pycache__/
 logs/*
 .env
 .venv/
+.data/*
+.hackaipipelinegrp11/*
