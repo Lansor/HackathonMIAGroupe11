@@ -1,0 +1,9 @@
+pymongo
+dnspython
+python-dotenv
+pytesseract
+Pillow
+pdf2image
+opencv-python
+numpy
+pandas

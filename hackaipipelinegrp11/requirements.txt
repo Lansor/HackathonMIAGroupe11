@@ -1,0 +1,6 @@
+pytesseract
+Pillow
+pdf2image
+pymongo
+dnspython
+python-dotenv
