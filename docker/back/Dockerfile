@@ -16,7 +16,7 @@ COPY back ./back
 COPY script ./script
 
 # Installer les dépendances Python
-RUN pip3 install --no-cache-dir -r script/requirements.txt
+# RUN pip3 install --no-cache-dir -r script/requirements.txt
 
 EXPOSE 8080
 

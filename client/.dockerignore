@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+coverage
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Git / editor / OS files
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Docker and docs noise
+Dockerfile*
+docker-compose*
+README.md
