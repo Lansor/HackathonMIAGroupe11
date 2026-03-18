@@ -67,7 +67,7 @@ def preprocess_image(image):
 
 
 # =========================
-# CORRECTION ROTATION
+#  CORRECTION ROTATION
 # =========================
 def correct_rotation(image):
     """
@@ -92,7 +92,7 @@ def correct_rotation(image):
 
 
 # =========================
-# OCR + CONFIDENCE
+#  OCR + CONFIDENCE
 # =========================
 def run_ocr(image):
     """
@@ -116,7 +116,7 @@ def run_ocr(image):
     return text, avg_conf / 100  # normalisé entre 0 et 1
 
 # =========================
-# PDF → IMAGES
+#  PDF → IMAGES
 # =========================
 def pdf_to_images(pdf_path):
     """
@@ -129,7 +129,7 @@ client = MongoClient("mongodb://localhost:27017/")
 db = client["ocr_database"]
 
 # =========================
-# PIPELINE PRINCIPAL
+#  PIPELINE PRINCIPAL
 # =========================
 def process_document(file_path, document_id, db):
     """
@@ -146,7 +146,7 @@ def process_document(file_path, document_id, db):
     pages_data = []
     full_text = ""
 
-    # 🔀 Gestion PDF vs image
+    # Gestion PDF vs image
     if file_path.endswith(".pdf"):
         images = pdf_to_images(file_path)
         source_type = "pdf"
@@ -154,7 +154,7 @@ def process_document(file_path, document_id, db):
         images = [cv2.imread(file_path)]
         source_type = "image"
 
-    # 🔄 Traitement page par page
+    # Traitement page par page
     for i, img in enumerate(images):
 
         # Conversion PIL → OpenCV si PDF
@@ -175,11 +175,11 @@ def process_document(file_path, document_id, db):
 
         full_text += text + "\n"
 
-    # 📊 Métriques
+    #  Métriques
     processing_time = time.time() - start_time
     avg_conf = sum(p["confidence"] for p in pages_data) / len(pages_data)
 
-    # 📦 Document final (Clean Zone)
+    # Document final (Clean Zone)
     document = {
         "document_id": document_id,
         "filename": file_path.split("/")[-1],
@@ -203,7 +203,8 @@ def process_document(file_path, document_id, db):
         }
     }
 
-    # Insertion MongoDB
+
+    #  Insertion MongoDB
     db.clean_ocr.insert_one(document)
 
     print(f"OCR terminé: {file_path}")
