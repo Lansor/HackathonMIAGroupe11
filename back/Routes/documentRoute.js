@@ -8,14 +8,17 @@ const {
   downloadDocument,
   getDocumentInfo,
   generateDocument,
-  deleteDocument, 
+  deleteDocument,
   getDocumentInfoOCR,
+  getAllCuratedData,
   getDocumentsByUser,
 } = require("../Controllers/documentController");
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+router.post("/upload", upload.single('file'), uploadDocument);
+router.get("/curated/all", getAllCuratedData);
 router.post("/upload", upload.single("file"), uploadDocument);
 router.get("/user/:userId", getDocumentsByUser);
 router.get("/info/:docId", getDocumentInfo);

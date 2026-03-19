@@ -484,7 +484,7 @@ def document_pipeline_mvp() -> None:
         client = _get_mongo_client()
         db = _get_db(client)
         clean_ocr_col = db["cleanocrs"]
-        curated_col = db["curated_data"]
+        curated_col = db["curateddatas"]
         raw_col = db["rawdocuments"]
       
         # Charger le module OCR une fois

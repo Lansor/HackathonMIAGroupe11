@@ -16,43 +16,51 @@ import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 
 type UserRow = {
+  id: string;
   username: string;
   email: string;
   createdAt: Date;
-  Fichiers: {
-    nom: string;
-    flag: string;
+  anomalies: {
+    filename: string;
+    docType: string;
+    status: string;
+    message: string;
   }[];
 };
 
 export type UserTableData = {
+  id: string;
   username: string;
   email: string;
   createdAt: Date;
+  anomalies: {
+    filename: string;
+    docType: string;
+    status: string;
+    message: string;
+  }[];
 };
 
-function createData(username : string, email : string, createdAt : Date): UserRow {
+function createData(
+  id: string,
+  username: string,
+  email: string,
+  createdAt: Date,
+  anomalies: UserRow["anomalies"],
+): UserRow {
     return {
+      id,
       username,
       email,
       createdAt,
-      Fichiers: [
-        {
-          nom: 'devis',
-          flag: 'EXPIRED-DOCUMENT'
-        },
-        {
-          nom: 'facture',
-          flag: ''
-        }
-      ]
+      anomalies,
     };
   }
 
   function Row(props: { row: UserRow }) {
     const { row } = props;
     const [open, setOpen] = React.useState(false);
-    const hasFlag = row.Fichiers.some((fichier) => fichier.flag.trim() !== '');
+    const hasAnomaly = row.anomalies.length > 0;
   
     return (
       <React.Fragment>
@@ -72,7 +80,7 @@ function createData(username : string, email : string, createdAt : Date): UserRo
           <TableCell align="right">{row.email}</TableCell>
           <TableCell align="right">{row.createdAt.toLocaleDateString('fr-FR')}</TableCell>
           <TableCell align="center">
-            {hasFlag ? '⚠️' : null}
+            {hasAnomaly ? '⚠️' : null}
           </TableCell>
         </TableRow>
         <TableRow>
@@ -80,15 +88,22 @@ function createData(username : string, email : string, createdAt : Date): UserRo
             <Collapse in={open} timeout="auto" unmountOnExit>
               <Box sx={{ margin: 1 }}>
                 <Typography variant="h6" gutterBottom component="div">
-                  Fichiers
+                  Anomalies
                 </Typography>
-                <Table size="small" aria-label="fichiers">
+                <Table size="small" aria-label="anomalies">
                   <TableBody>
-                    {row.Fichiers.filter((fichier) => fichier.flag !== '').map((fichier) => (
-                      <TableRow key={fichier.nom}>
-                        <TableCell>{`${fichier.nom} a ${fichier.flag}`}</TableCell>
+                    {row.anomalies.map((anomaly, index) => (
+                      <TableRow key={`${anomaly.docType}-${anomaly.status}-${index}`}>
+                        <TableCell>
+                          {`[${anomaly.filename}] est ${anomaly.status} avec comme erreur : ${anomaly.message}`}
+                        </TableCell>
                       </TableRow>
                     ))}
+                    {row.anomalies.length === 0 ? (
+                      <TableRow>
+                        <TableCell>Aucune anomalie</TableCell>
+                      </TableRow>
+                    ) : null}
                   </TableBody>
                 </Table>
               </Box>
@@ -107,7 +122,7 @@ export default function CollapsibleTable({ users }: UsersTableProps) {
     const [searchValue, setSearchValue] = React.useState('');
 
     const rows: UserRow[] = users.map((user) =>
-      createData(user.username, user.email, user.createdAt)
+      createData(user.id, user.username, user.email, user.createdAt, user.anomalies)
     );
 
     const filteredRows = rows.filter((row) => {

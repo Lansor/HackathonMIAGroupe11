@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const RawDocument = require("../Models/rawDocumentModel");
 const CleanOCR = require("../Models/cleanOCRModel");
+const CuratedData = require("../Models/curatedDataModel");
 
 // Logique pour générer un document PDF
 const generateDocument = async (req, res) => {
@@ -303,6 +304,84 @@ const getDocumentsByUser = async (req, res) => {
   }
 };
 
+const getAllCuratedData = async (_req, res) => {
+  try {
+    const curatedData = await CuratedData.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const rawDocumentIds = curatedData
+      .map((item) => item.raw_document_id || item.document_id)
+      .filter(Boolean)
+      .map((id) => String(id))
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    const rawDocuments =
+      rawDocumentIds.length > 0
+        ? await RawDocument.find({ _id: { $in: rawDocumentIds } })
+            .select("_id filename user_id")
+            .lean()
+        : [];
+
+    const rawInfoById = new Map(
+      rawDocuments.map((doc) => [
+        String(doc._id),
+        { filename: doc.filename, user_id: doc.user_id },
+      ]),
+    );
+
+    const curatedDataWithFilename = curatedData.map((item) => {
+      const rawId = item.raw_document_id || item.document_id;
+      const alertMessages = Array.isArray(item.alerts)
+        ? item.alerts
+            .map((alert) => alert?.message)
+            .filter(Boolean)
+        : [];
+      const complianceStatus =
+        item.compliance?.status ||
+        item.status ||
+        (alertMessages.length > 0 ? "ANOMALIE" : "VALIDATED");
+      const complianceMessage =
+        item.compliance?.message ||
+        item.compliance?.errors?.[0] ||
+        alertMessages[0] ||
+        "";
+      const complianceErrors =
+        item.compliance?.errors ||
+        (alertMessages.length > 0 ? alertMessages : []);
+
+      return {
+        ...item,
+        filename:
+          item.filename ||
+          (rawId ? rawInfoById.get(String(rawId))?.filename : undefined) ||
+          "Fichier inconnu",
+        user_id:
+          item.user_id ||
+          (rawId ? rawInfoById.get(String(rawId))?.user_id : undefined),
+        compliance: {
+          is_valid:
+            typeof item.compliance?.is_valid === "boolean"
+              ? item.compliance.is_valid
+              : alertMessages.length === 0 &&
+                !String(complianceStatus).includes("NEEDS_REVIEW") &&
+                !String(complianceStatus).includes("INCOMPLET") &&
+                !String(complianceStatus).includes("BLOQUE") &&
+                !String(complianceStatus).includes("FAILED"),
+          status: complianceStatus,
+          message: complianceMessage,
+          errors: complianceErrors,
+        },
+      };
+    });
+
+    res.status(200).send({ curatedData: curatedDataWithFilename });
+  } catch (error) {
+    res.status(400).send({ error: error.message });
+  }
+};
+
 module.exports = {
   uploadDocument,
   downloadDocument,
@@ -310,5 +389,6 @@ module.exports = {
   generateDocument,
   deleteDocument,
   getDocumentInfoOCR,
+  getAllCuratedData,
   getDocumentsByUser,
 };
