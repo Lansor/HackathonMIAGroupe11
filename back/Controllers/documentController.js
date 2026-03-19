@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const RawDocument = require("../Models/rawDocumentModel");
 const CleanOCR = require("../Models/cleanOCRModel");
+const CuratedData = require("../Models/curatedDataModel");
 
 // Logique pour générer un document PDF
 const generateDocument = async (req, res) => {
@@ -281,11 +282,24 @@ const getDocumentInfoOCR = async (req, res) => {
     }
   };
 
+const getAllCuratedData = async (_req, res) => {
+  try {
+    const curatedData = await CuratedData.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.status(200).send({ curatedData });
+  } catch (error) {
+    res.status(400).send({ error: error.message });
+  }
+};
+
 module.exports = {
   uploadDocument,
   downloadDocument,
   getDocumentInfo,
   generateDocument,
   deleteDocument,
-  getDocumentInfoOCR
+  getDocumentInfoOCR,
+  getAllCuratedData,
 };

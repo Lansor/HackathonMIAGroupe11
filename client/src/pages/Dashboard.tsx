@@ -8,6 +8,7 @@ import {
   Title,
   Tooltip,
 } from 'chart.js'
+import { useEffect, useMemo, useState } from 'react'
 import { Bar } from 'react-chartjs-2'
 import UsersTable from '../components/UsersTable/UsersTable'
 
@@ -26,67 +27,138 @@ const whiteBackgroundPlugin: Plugin<'bar'> = {
 }
 
 function Dashboard() {
-  const listeUsers = [
-    {
-      username: 'carlbrgs',
-      email: 'carlbrgs@gmail.com',
-      password: '123456',
-      createdAt: new Date(),
-    },
-    {
-      username: 'killian',
-      email: 'killian@gmail.com',
-      password: '123456',
-      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    },
-  ]
+  type ApiUser = {
+    id: string
+    username: string
+    email: string
+    role: 'user' | 'admin'
+    createdAt: string
+  }
 
-  const listeFichiers = [
-    {
-      nom: 'devis',
-      nb: 10,
-    },
-    {
-      nom: 'factures fournisseurs',
-      nb: 20,
-    },
-    {
-      nom: 'Attestation SIRET',
-      nb: 15,
-    },
-    {
-      nom: 'Attestation de vigilance URSSAF',
-      nb: 5,
-    },
-    {
-      nom: 'Extrait Kbis',
-      nb: 7,
-    },
-    {
-      nom: 'RIB',
-      nb: 2,
-    },
-  ]
+  type ApiCuratedData = {
+    _id: string
+    doc_type: 'facture' | 'devis' | 'urssaf' | 'kbis' | 'rib'
+    compliance?: {
+      is_valid?: boolean
+      errors?: string[]
+    }
+    createdAt: string
+  }
 
-  const listeTypeFichier =[
-    {
-      nom: 'pdf',
-      nb: 10,
-    },
-    {
-      nom: 'jpg',
-      nb: 20,
-    },
-    {
-      nom: 'png',
-      nb: 15,
-    },
-    {
-      nom: 'excel',
-      nb: 15,
-    },
-  ]
-  
+  const [users, setUsers] = useState<ApiUser[]>([])
+  const [usersLoading, setUsersLoading] = useState(true)
+  const [usersError, setUsersError] = useState<string | null>(null)
+  const [curatedData, setCuratedData] = useState<ApiCuratedData[]>([])
+  const [curatedLoading, setCuratedLoading] = useState(true)
+  const [curatedError, setCuratedError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        setUsersLoading(true)
+        setUsersError(null)
+
+        const response = await fetch('/api/user-manager', {
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          throw new Error('Impossible de recuperer les utilisateurs.')
+        }
+
+        const data = (await response.json()) as { users?: ApiUser[] }
+        setUsers(Array.isArray(data.users) ? data.users : [])
+      } catch (error) {
+        setUsersError(
+          error instanceof Error
+            ? error.message
+            : 'Erreur lors du chargement des utilisateurs.',
+        )
+      } finally {
+        setUsersLoading(false)
+      }
+    }
+
+    void loadUsers()
+  }, [])
+
+  useEffect(() => {
+    const loadCuratedData = async () => {
+      try {
+        setCuratedLoading(true)
+        setCuratedError(null)
+
+        const response = await fetch('/api/document/curated/all', {
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          throw new Error('Impossible de recuperer les donnees curatees.')
+        }
+
+        const data = (await response.json()) as {
+          curatedData?: ApiCuratedData[]
+        }
+
+        setCuratedData(Array.isArray(data.curatedData) ? data.curatedData : [])
+      } catch (error) {
+        setCuratedError(
+          error instanceof Error
+            ? error.message
+            : 'Erreur lors du chargement des donnees curatees.',
+        )
+      } finally {
+        setCuratedLoading(false)
+      }
+    }
+
+    void loadCuratedData()
+  }, [])
+
+  const nonAdminUsers = useMemo(
+    () =>
+      users
+        .filter((user) => user.role !== 'admin')
+        .map((user) => ({
+          username: user.username,
+          email: user.email,
+          createdAt: new Date(user.createdAt),
+        })),
+    [users],
+  )
+
+  const listeFichiers = useMemo(() => {
+    const counters = {
+      facture: 0,
+      devis: 0,
+      urssaf: 0,
+      kbis: 0,
+      rib: 0,
+    }
+
+    for (const item of curatedData) {
+      counters[item.doc_type] += 1
+    }
+
+    return [
+      { nom: 'facture', nb: counters.facture },
+      { nom: 'devis', nb: counters.devis },
+      { nom: 'urssaf', nb: counters.urssaf },
+      { nom: 'kbis', nb: counters.kbis },
+      { nom: 'rib', nb: counters.rib },
+    ]
+  }, [curatedData])
+
+  const listeTypeFichier = useMemo(() => {
+    const conformes = curatedData.filter((item) => item.compliance?.is_valid).length
+    const nonConformes = curatedData.length - conformes
+
+    return [
+      { nom: 'conformes', nb: conformes },
+      { nom: 'non conformes', nb: nonConformes },
+    ]
+  }, [curatedData])
+
 
   const chartData = {
     labels: listeFichiers.map((fichier) => fichier.nom),
@@ -175,7 +247,7 @@ function Dashboard() {
             <div className="mx-auto rounded-xl bg-white p-2" style={{ width: '20rem', height: '20rem', backgroundColor: '#ffffff' }}>
               <Bar
                 data={chartDataTypeFichier}
-                options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Nombre par type de fichier' } } }}
+                options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Conformite des documents' } } }}
                 style={{ width: '100%', height: '100%' }}
                 plugins={[whiteBackgroundPlugin]}
               />
@@ -185,8 +257,20 @@ function Dashboard() {
 
 
 
-        <div className="mt-8" style={{ marginTop: '2rem' }}>
-          <UsersTable users={listeUsers} />
+        <div className="mt-8 space-y-3" style={{ marginTop: '2rem' }}>
+          {curatedLoading ? (
+            <p className="text-sm text-slate-500">Chargement des donnees curatees...</p>
+          ) : null}
+          {curatedError ? (
+            <p className="text-sm text-red-600">{curatedError}</p>
+          ) : null}
+          {usersLoading ? (
+            <p className="text-sm text-slate-500">Chargement des utilisateurs...</p>
+          ) : null}
+          {usersError ? (
+            <p className="text-sm text-red-600">{usersError}</p>
+          ) : null}
+          {!usersLoading && !usersError ? <UsersTable users={nonAdminUsers} /> : null}
         </div>
 
       </div>
