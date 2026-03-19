@@ -4,4 +4,6 @@ export type UploadedItem = {
   id: string;
   name: string;
   status: UploadStatus;
+  rawFile: globalThis.File;
+  isSubmitted: boolean;
 };

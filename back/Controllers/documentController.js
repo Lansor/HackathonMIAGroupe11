@@ -28,9 +28,13 @@ const generateDocument = async (req, res) => {
 
     // Exécuter le script Python avec le type de document
     return new Promise((resolve, reject) => {
-      const pythonProcess = spawn("py", [scriptPath, docType.toLowerCase()], {
-        cwd: path.join(__dirname, "../../script"),
-      });
+      const pythonProcess = spawn(
+        "python3",
+        [scriptPath, docType.toLowerCase()],
+        {
+          cwd: path.join(__dirname, "../../script"),
+        },
+      );
 
       let stdout = "";
       let stderr = "";
@@ -270,17 +274,35 @@ const deleteDocument = async (req, res) => {
 const getDocumentInfoOCR = async (req, res) => {
   try {
     const { docId } = req.params;
-    
+
     const rawDoc = await CleanOCR.findById(docId);
     if (!rawDoc) {
       return res.status(404).send({ error: "Document introuvable" });
     }
-    
+
     res.status(200).send(rawDoc);
-    } catch (error) {
+  } catch (error) {
     res.status(400).send({ error: error.message });
-    }
-  };
+  }
+};
+
+// Logique pour récupérer tous les documents d'un utilisateur
+const getDocumentsByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const docs = await RawDocument.find({ user_id: userId }).sort({
+      createdAt: -1,
+    });
+    return res.status(200).send({
+      message: "Documents récupérés avec succès",
+      count: docs.length,
+      documents: docs,
+    });
+  } catch (error) {
+    console.log("Error fetching documents by user:", error.message);
+    res.status(400).send({ error: error.message });
+  }
+};
 
 const getAllCuratedData = async (_req, res) => {
   try {
@@ -288,7 +310,73 @@ const getAllCuratedData = async (_req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    res.status(200).send({ curatedData });
+    const rawDocumentIds = curatedData
+      .map((item) => item.raw_document_id || item.document_id)
+      .filter(Boolean)
+      .map((id) => String(id))
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    const rawDocuments =
+      rawDocumentIds.length > 0
+        ? await RawDocument.find({ _id: { $in: rawDocumentIds } })
+            .select("_id filename user_id")
+            .lean()
+        : [];
+
+    const rawInfoById = new Map(
+      rawDocuments.map((doc) => [
+        String(doc._id),
+        { filename: doc.filename, user_id: doc.user_id },
+      ]),
+    );
+
+    const curatedDataWithFilename = curatedData.map((item) => {
+      const rawId = item.raw_document_id || item.document_id;
+      const alertMessages = Array.isArray(item.alerts)
+        ? item.alerts
+            .map((alert) => alert?.message)
+            .filter(Boolean)
+        : [];
+      const complianceStatus =
+        item.compliance?.status ||
+        item.status ||
+        (alertMessages.length > 0 ? "ANOMALIE" : "VALIDATED");
+      const complianceMessage =
+        item.compliance?.message ||
+        item.compliance?.errors?.[0] ||
+        alertMessages[0] ||
+        "";
+      const complianceErrors =
+        item.compliance?.errors ||
+        (alertMessages.length > 0 ? alertMessages : []);
+
+      return {
+        ...item,
+        filename:
+          item.filename ||
+          (rawId ? rawInfoById.get(String(rawId))?.filename : undefined) ||
+          "Fichier inconnu",
+        user_id:
+          item.user_id ||
+          (rawId ? rawInfoById.get(String(rawId))?.user_id : undefined),
+        compliance: {
+          is_valid:
+            typeof item.compliance?.is_valid === "boolean"
+              ? item.compliance.is_valid
+              : alertMessages.length === 0 &&
+                !String(complianceStatus).includes("NEEDS_REVIEW") &&
+                !String(complianceStatus).includes("INCOMPLET") &&
+                !String(complianceStatus).includes("BLOQUE") &&
+                !String(complianceStatus).includes("FAILED"),
+          status: complianceStatus,
+          message: complianceMessage,
+          errors: complianceErrors,
+        },
+      };
+    });
+
+    res.status(200).send({ curatedData: curatedDataWithFilename });
   } catch (error) {
     res.status(400).send({ error: error.message });
   }
@@ -302,4 +390,5 @@ module.exports = {
   deleteDocument,
   getDocumentInfoOCR,
   getAllCuratedData,
+  getDocumentsByUser,
 };

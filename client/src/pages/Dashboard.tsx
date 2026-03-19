@@ -37,11 +37,17 @@ function Dashboard() {
 
   type ApiCuratedData = {
     _id: string
+    user_id?: string
+    filename?: string
     doc_type: 'facture' | 'devis' | 'urssaf' | 'kbis' | 'rib'
     compliance?: {
       is_valid?: boolean
+      status?: string
+      message?: string
       errors?: string[]
     }
+    status?: string
+    alerts?: Array<{ message?: string }>
     createdAt: string
   }
 
@@ -120,11 +126,65 @@ function Dashboard() {
       users
         .filter((user) => user.role !== 'admin')
         .map((user) => ({
+          id: user.id,
           username: user.username,
           email: user.email,
           createdAt: new Date(user.createdAt),
+          anomalies: [],
         })),
     [users],
+  )
+
+  const anomaliesByUser = useMemo(() => {
+    const map = new Map<
+      string,
+      Array<{ filename: string; docType: string; status: string; message: string }>
+    >()
+
+    for (const item of curatedData) {
+      const userId = item.user_id ? String(item.user_id) : ''
+      if (!userId) continue
+
+      const status =
+        item.compliance?.status ??
+        item.status ??
+        (item.compliance?.is_valid === false ? 'ANOMALIE' : '')
+      const normalizedStatus = status.toUpperCase()
+
+      const message =
+        item.compliance?.message ??
+        item.compliance?.errors?.[0] ??
+        item.alerts?.[0]?.message ??
+        ''
+
+      const hasAnomaly =
+        item.compliance?.is_valid === false ||
+        (Boolean(status) &&
+          !['VALIDATED', 'CURATED', 'UPDATED'].includes(normalizedStatus)) ||
+        Boolean(message)
+
+      if (!hasAnomaly) continue
+
+      const current = map.get(userId) ?? []
+      current.push({
+        filename: item.filename || 'Fichier inconnu',
+        docType: item.doc_type,
+        status: status || 'ANOMALIE',
+        message: message || 'Anomalie detectee',
+      })
+      map.set(userId, current)
+    }
+
+    return map
+  }, [curatedData])
+
+  const usersWithAnomalies = useMemo(
+    () =>
+      nonAdminUsers.map((user) => ({
+        ...user,
+        anomalies: anomaliesByUser.get(user.id) ?? [],
+      })),
+    [anomaliesByUser, nonAdminUsers],
   )
 
   const listeFichiers = useMemo(() => {
@@ -270,7 +330,7 @@ function Dashboard() {
           {usersError ? (
             <p className="text-sm text-red-600">{usersError}</p>
           ) : null}
-          {!usersLoading && !usersError ? <UsersTable users={nonAdminUsers} /> : null}
+          {!usersLoading && !usersError ? <UsersTable users={usersWithAnomalies} /> : null}
         </div>
 
       </div>
