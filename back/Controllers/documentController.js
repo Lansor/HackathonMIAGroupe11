@@ -273,17 +273,17 @@ const deleteDocument = async (req, res) => {
 const getDocumentInfoOCR = async (req, res) => {
   try {
     const { docId } = req.params;
-    
+
     const rawDoc = await CleanOCR.findById(docId);
     if (!rawDoc) {
       return res.status(404).send({ error: "Document introuvable" });
     }
-    
+
     res.status(200).send(rawDoc);
-    } catch (error) {
+  } catch (error) {
     res.status(400).send({ error: error.message });
-    }
-  };
+  }
+};
 
 // Logique pour récupérer tous les documents d'un utilisateur
 const getDocumentsByUser = async (req, res) => {
@@ -309,6 +309,6 @@ module.exports = {
   getDocumentInfo,
   generateDocument,
   deleteDocument,
-  getDocumentInfoOCR
+  getDocumentInfoOCR,
   getDocumentsByUser,
 };
