@@ -4,7 +4,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Installer Python et dépendances avec build tools
+# Installer Python et les dependances de l'environement d'execution du script de generation de document
 RUN apk add --no-cache \
     python3 \
     py3-pip \
@@ -12,15 +12,16 @@ RUN apk add --no-cache \
     python3-dev \
     cairo-dev
 
-# Copier et installer les dépendances
+
 COPY back/package*.json ./
 RUN npm ci --only=production
 
-# Copier le code avec la bonne structure
+
 COPY back ./back
 COPY script ./script
 
-# Installer les dépendances Python
+# Installer les dépendances Python de requirements.txt
+# Note: --break-system-packages est utilisé pour éviter les conflits avec les packages Python préinstallés dans l'image alpine.
 RUN pip3 install --no-cache-dir --break-system-packages -r script/requirements.txt
 
 EXPOSE 8080
