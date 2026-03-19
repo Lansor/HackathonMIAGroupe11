@@ -8,7 +8,8 @@ const {
   downloadDocument,
   getDocumentInfo,
   generateDocument,
-  deleteDocument,
+  deleteDocument, 
+  getDocumentInfoOCR,
   getDocumentsByUser,
 } = require("../Controllers/documentController");
 
@@ -18,6 +19,7 @@ const upload = multer({ storage });
 router.post("/upload", upload.single("file"), uploadDocument);
 router.get("/user/:userId", getDocumentsByUser);
 router.get("/info/:docId", getDocumentInfo);
+router.get("/infoOCR/:docId", getDocumentInfoOCR);
 router.delete("/delete/:docId", deleteDocument);
 router.get("/download/:gridFsId", downloadDocument);
 router.get("/generate/:docType", generateDocument);

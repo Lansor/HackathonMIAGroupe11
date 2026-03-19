@@ -7,3 +7,6 @@ pdf2image
 opencv-python
 numpy
 pandas
+easyocr
+torch
+torchvision
