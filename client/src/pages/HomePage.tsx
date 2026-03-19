@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -69,6 +70,13 @@ const STEPS = [
 
 function HomePage() {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/user/me", { credentials: "include" })
+      .then((res) => setIsAuthenticated(res.ok))
+      .catch(() => setIsAuthenticated(false));
+  }, []);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -106,13 +114,15 @@ function HomePage() {
               Commencer maintenant
               <FontAwesomeIcon icon={faArrowRight} className="text-sm" />
             </button>
-            <button
-              type="button"
-              onClick={() => navigate("/auth")}
-              className="flex items-center gap-2 rounded-xl border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
-            >
-              Se connecter
-            </button>
+            {!isAuthenticated && (
+              <button
+                type="button"
+                onClick={() => navigate("/auth")}
+                className="flex items-center gap-2 rounded-xl border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+              >
+                Se connecter
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -208,14 +218,16 @@ function HomePage() {
           minutes.
         </p>
         <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <button
-            type="button"
-            onClick={() => navigate("/auth")}
-            className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-indigo-600 shadow-lg transition hover:bg-indigo-50"
-          >
-            <FontAwesomeIcon icon={faCircleCheck} />
-            Créer un compte
-          </button>
+          {!isAuthenticated && (
+            <button
+              type="button"
+              onClick={() => navigate("/auth")}
+              className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-indigo-600 shadow-lg transition hover:bg-indigo-50"
+            >
+              <FontAwesomeIcon icon={faCircleCheck} />
+              Créer un compte
+            </button>
+          )}
           <button
             type="button"
             onClick={() => navigate("/upload")}
