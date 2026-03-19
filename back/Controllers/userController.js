@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../Models/userModel");
+const CuratedData = require("../Models/curatedDataModel");
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_jwt_secret_change_me";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1d";
@@ -228,6 +229,31 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
+
+const getCuratedData = async (req, res) => {
+  try {
+    const { sub } = req.auth || {};
+
+    if (!sub) {
+      return res.status(401).json({
+      message: "Token invalide.",
+      });
+    }
+
+    const curatedData = await CuratedData.find({ user_id: sub });
+
+    return res.status(200).json({
+      message: "Donnees recuperees.",
+      curatedData,
+    });
+    } catch (error) {
+    return res.status(500).json({
+      message: "Erreur serveur lors de la recuperation des donnees.",
+      error: error.message,
+    });
+    }
+  };
+
 const logoutUser = (_req, res) => {
   clearAuthCookie(res);
 
@@ -242,5 +268,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   getCurrentUser,
+  getCuratedData,
   logoutUser,
 };
