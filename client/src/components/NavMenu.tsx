@@ -48,6 +48,14 @@ function NavMenu() {
     navigate("/dashboard");
     setIsOpen(false);
   };
+  const handleHome = () => {
+    navigate("/");
+    setIsOpen(false);
+  };
+  const handleUploadPage = () => {
+    navigate("/upload");
+    setIsOpen(false);
+  };
   const handleLogout = async () => {
     try {
       await fetch(`/api/user/logout`, {
@@ -79,10 +87,17 @@ function NavMenu() {
             <div className="absolute right-0 z-20 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
               <button
                 type="button"
-                className="w-full rounded-md px-3 py-2 text-left text-slate-400"
-                disabled
+                className="w-full rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-100"
+                onClick={handleHome}
               >
-                Menu 1 (bientot)
+                Accueil
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-100"
+                onClick={handleUploadPage}
+              >
+                Traitement
               </button>
               <button
                 type="button"
