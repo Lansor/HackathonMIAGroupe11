@@ -6,6 +6,7 @@ import { faCircleUser } from "@fortawesome/free-regular-svg-icons";
 function NavMenu() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -14,11 +15,39 @@ function NavMenu() {
         setIsOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        const res = await fetch("/api/user/me", {
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          setIsAdmin(false);
+          return;
+        }
+
+        const data = (await res.json()) as {
+          user?: { role?: "user" | "admin" };
+        };
+        setIsAdmin(data?.user?.role === "admin");
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+
+    void loadCurrentUser();
+  }, []);
+
+  const handleDashboard = () => {
+    if (!isAdmin) return;
+    navigate("/dashboard");
+    setIsOpen(false);
+  };
   const handleLogout = async () => {
     try {
       await fetch(`/api/user/logout`, {
@@ -57,10 +86,15 @@ function NavMenu() {
               </button>
               <button
                 type="button"
-                className="w-full rounded-md px-3 py-2 text-left text-slate-400"
-                disabled
+                className={
+                  isAdmin
+                    ? "w-full rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-100"
+                    : "w-full rounded-md px-3 py-2 text-left text-slate-400"
+                }
+                onClick={handleDashboard}
+                disabled={!isAdmin}
               >
-                Menu 2 (bientot)
+                {isAdmin ? "Dashboard" : "Dashboard (admin requis)"}
               </button>
               <hr className="my-2 border-slate-200" />
               <button
