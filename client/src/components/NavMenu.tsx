@@ -6,6 +6,7 @@ import { faCircleUser } from "@fortawesome/free-regular-svg-icons";
 function NavMenu() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -14,11 +15,47 @@ function NavMenu() {
         setIsOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        const res = await fetch("/api/user/me", {
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          setIsAdmin(false);
+          return;
+        }
+
+        const data = (await res.json()) as {
+          user?: { role?: "user" | "admin" };
+        };
+        setIsAdmin(data?.user?.role === "admin");
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+
+    void loadCurrentUser();
+  }, []);
+
+  const handleDashboard = () => {
+    if (!isAdmin) return;
+    navigate("/dashboard");
+    setIsOpen(false);
+  };
+  const handleHome = () => {
+    navigate("/");
+    setIsOpen(false);
+  };
+  const handleUploadPage = () => {
+    navigate("/upload");
+    setIsOpen(false);
+  };
   const handleLogout = async () => {
     try {
       await fetch(`/api/user/logout`, {
@@ -50,17 +87,29 @@ function NavMenu() {
             <div className="absolute right-0 z-20 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
               <button
                 type="button"
-                className="w-full rounded-md px-3 py-2 text-left text-slate-400"
-                disabled
+                className="w-full rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-100"
+                onClick={handleHome}
               >
-                Menu 1 (bientot)
+                Accueil
               </button>
               <button
                 type="button"
-                className="w-full rounded-md px-3 py-2 text-left text-slate-400"
-                disabled
+                className="w-full rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-100"
+                onClick={handleUploadPage}
               >
-                Menu 2 (bientot)
+                Traitement
+              </button>
+              <button
+                type="button"
+                className={
+                  isAdmin
+                    ? "w-full rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-100"
+                    : "w-full rounded-md px-3 py-2 text-left text-slate-400"
+                }
+                onClick={handleDashboard}
+                disabled={!isAdmin}
+              >
+                {isAdmin ? "Dashboard" : "Dashboard (admin requis)"}
               </button>
               <hr className="my-2 border-slate-200" />
               <button

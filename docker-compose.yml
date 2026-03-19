@@ -1,4 +1,4 @@
-## version: "3.8"
+# version: "3.8"
 
 services:
   # Backend
@@ -35,9 +35,6 @@ services:
     restart: unless-stopped
 
   # Airflow
-
-volumes:
-  mongodb_data:
 
 networks:
   hackathon-network:
