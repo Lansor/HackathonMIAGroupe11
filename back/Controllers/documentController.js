@@ -26,9 +26,13 @@ const generateDocument = async (req, res) => {
 
     // Exécuter le script Python avec le type de document
     return new Promise((resolve, reject) => {
-      const pythonProcess = spawn("py", [scriptPath, docType.toLowerCase()], {
-        cwd: path.join(__dirname, "../../script"),
-      });
+      const pythonProcess = spawn(
+        "python3",
+        [scriptPath, docType.toLowerCase()],
+        {
+          cwd: path.join(__dirname, "../../script"),
+        },
+      );
 
       let stdout = "";
       let stderr = "";
@@ -265,10 +269,29 @@ const deleteDocument = async (req, res) => {
   }
 };
 
+// Logique pour récupérer tous les documents d'un utilisateur
+const getDocumentsByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const docs = await RawDocument.find({ user_id: userId }).sort({
+      createdAt: -1,
+    });
+    return res.status(200).send({
+      message: "Documents récupérés avec succès",
+      count: docs.length,
+      documents: docs,
+    });
+  } catch (error) {
+    console.log("Error fetching documents by user:", error.message);
+    res.status(400).send({ error: error.message });
+  }
+};
+
 module.exports = {
   uploadDocument,
   downloadDocument,
   getDocumentInfo,
   generateDocument,
   deleteDocument,
+  getDocumentsByUser,
 };

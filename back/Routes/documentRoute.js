@@ -9,12 +9,14 @@ const {
   getDocumentInfo,
   generateDocument,
   deleteDocument,
+  getDocumentsByUser,
 } = require("../Controllers/documentController");
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 router.post("/upload", upload.single("file"), uploadDocument);
+router.get("/user/:userId", getDocumentsByUser);
 router.get("/info/:docId", getDocumentInfo);
 router.delete("/delete/:docId", deleteDocument);
 router.get("/download/:gridFsId", downloadDocument);

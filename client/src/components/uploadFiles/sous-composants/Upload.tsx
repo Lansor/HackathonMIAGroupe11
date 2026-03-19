@@ -58,10 +58,8 @@ function Upload({ onFilesAdded }: UploadProps) {
 
   return (
     <div
-      className={`rounded-xl border-2 border-dashed p-6 text-left shadow-sm transition ${
-        isDragging
-          ? "border-violet-500 bg-violet-50"
-          : "border-slate-300 bg-white"
+      className={`rounded-2xl border-2 border-dashed p-6 text-left shadow-sm transition ${
+        isDragging ? "border-sky-500 bg-sky-50" : "border-slate-300 bg-white"
       }`}
       onDragEnter={(event) => setDragging(event, true)}
       onDragOver={(event) => setDragging(event, true)}
@@ -83,7 +81,7 @@ function Upload({ onFilesAdded }: UploadProps) {
 
       <button
         type="button"
-        className="rounded-md bg-violet-600 px-4 py-2 font-semibold text-white hover:bg-violet-700"
+        className="rounded-md bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700"
         onClick={() => inputRef.current?.click()}
       >
         <FontAwesomeIcon icon={faFolderPlus} /> fichiers

@@ -61,7 +61,7 @@ function ForgetPassword({ onGoLogin }: ForgetPasswordProps) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Erreur inconnue pendant forgot password.",
+          : "Erreur inconnue pendant la réinitialisation du mot de passe.",
       );
     } finally {
       setIsLoading(false);
@@ -70,7 +70,7 @@ function ForgetPassword({ onGoLogin }: ForgetPasswordProps) {
 
   return (
     <form
-      className="mx-auto flex w-full max-w-md flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm"
+      className="mx-auto flex w-full max-w-md flex-col gap-3.5 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm md:p-6"
       onSubmit={(event) => {
         event.preventDefault();
         void handleSubmit();
@@ -95,7 +95,7 @@ function ForgetPassword({ onGoLogin }: ForgetPasswordProps) {
       </p>
 
       <label className="flex flex-col gap-2">
-        <span>Email</span>
+        <span>Adresse e-mail</span>
         <input
           type="email"
           name="email"
@@ -179,7 +179,7 @@ function ForgetPassword({ onGoLogin }: ForgetPasswordProps) {
 
       <button
         type="submit"
-        className="rounded-md bg-violet-600 px-4 py-2 font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-70"
+        className="rounded-md bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={isLoading}
       >
         {isLoading
@@ -191,11 +191,11 @@ function ForgetPassword({ onGoLogin }: ForgetPasswordProps) {
 
       <button
         type="button"
-        className="mt-2 self-end text-slate-600 underline underline-offset-4 hover:text-violet-700"
+        className="mt-1 self-end text-slate-600 underline underline-offset-4 hover:text-indigo-700"
         onClick={onGoLogin}
         disabled={isLoading}
       >
-        Retour au login
+        Retour à la connexion
       </button>
     </form>
   );

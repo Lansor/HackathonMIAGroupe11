@@ -23,7 +23,7 @@ function File({
   isProcessing,
 }: FileListProps) {
   return (
-    <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm">
+    <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm">
       <div className="border-b border-slate-200 px-4 py-3">
         <h3 className="font-semibold text-slate-800">Fichiers ajoutés</h3>
       </div>
@@ -31,7 +31,7 @@ function File({
       <ul className="divide-y divide-slate-200">
         {isUploading && (
           <li className="flex items-center gap-2 px-4 py-3 text-slate-600">
-            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-violet-600" />
+            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600" />
             <span>{pendingLabel}</span>
           </li>
         )}
