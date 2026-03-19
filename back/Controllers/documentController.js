@@ -274,7 +274,6 @@ const deleteDocument = async (req, res) => {
 const getDocumentInfoOCR = async (req, res) => {
   try {
     const { docId } = req.params;
-
     const rawDoc = await CleanOCR.findById(docId);
     if (!rawDoc) {
       return res.status(404).send({ error: "Document introuvable" });

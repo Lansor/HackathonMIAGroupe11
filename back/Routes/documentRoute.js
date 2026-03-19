@@ -3,6 +3,10 @@ const router = express.Router();
 const multer = require("multer");
 
 // Import des fonctions du Controller
+<<<<<<< HEAD
+const { uploadDocument, downloadDocument, getDocumentInfo, generateDocument, deleteDocument, getDocumentInfoOCR } = require("../Controllers/documentController");
+
+=======
 const {
   uploadDocument,
   downloadDocument,
@@ -13,6 +17,7 @@ const {
   getAllCuratedData,
   getDocumentsByUser,
 } = require("../Controllers/documentController");
+>>>>>>> 8e29b425b927e1f1c824016fa5ab5ef5b947b6bc
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
